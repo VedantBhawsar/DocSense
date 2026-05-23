@@ -4,8 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "node --loader ts-node/esm src/app.ts",
-    "dev": "nodemon --exec \"node --loader ts-node/esm\" index.ts",
+    "start": "bun src/app.ts",
+    "dev": "bun --watch index.ts",
     "build": "tsc",
     "db:generate": "turbo run db:generate --filter=@docsense/db",
     "db:migrate": "turbo run db:migrate --filter=@docsense/db",
@@ -13,6 +13,8 @@
     "db:studio": "turbo run db:studio --filter=@docsense/db"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.9.1",
     "nodemon": "^3.1.14",
     "ts-node": "^10.9.2",
@@ -24,7 +26,12 @@
   "dependencies": {
     "@docsense/db": "workspace:*",
     "@types/express": "^5.0.6",
+    "argon2": "^0.44.0",
+    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "drizzle-orm": "^0.44.1",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "zod": "^4.4.3"
   }
 }
