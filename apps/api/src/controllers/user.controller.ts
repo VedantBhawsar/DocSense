@@ -10,6 +10,8 @@ export const userController = {
       const result = await userService.signup(req.body as SignupBody)
       res.status(201).json(result)
     } catch (err) {
+      console.log("error", err)
+
       next(err)
     }
   },

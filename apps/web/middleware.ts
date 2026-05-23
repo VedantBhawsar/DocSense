@@ -1,20 +1,39 @@
-import { auth } from "./auth"
+import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
 
-export default auth((req) => {
-  const isAuthenticated = !!req.auth
-  const { pathname } = req.nextUrl
-  const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/signup")
+export default withAuth(
+  function middleware(req) {
+    const { pathname } = req.nextUrl
+    const isAuthPage =
+      pathname.startsWith("/login") ||
+      pathname.startsWith("/signup")
 
-  if (!isAuthenticated && !isAuthPage) {
-    return NextResponse.redirect(new URL("/login", req.url))
+    if (req.nextauth.token && isAuthPage) {
+      return NextResponse.redirect(new URL("/dashboard", req.url))
+    }
+
+    return NextResponse.next()
+  },
+  {
+    callbacks: {
+      authorized({ token, req }) {
+        const { pathname } = req.nextUrl
+        const isAuthPage =
+          pathname.startsWith("/login") ||
+          pathname.startsWith("/signup")
+
+        if (isAuthPage) return true
+        return !!token
+      },
+    },
+    pages: {
+      signIn: "/login",
+    },
   }
-  if (isAuthenticated && isAuthPage) {
-    return NextResponse.redirect(new URL("/dashboard", req.url))
-  }
-  return NextResponse.next()
-})
+)
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico).*)",
+  ],
 }

@@ -50,9 +50,9 @@ export default function LoginPage() {
           <p className="text-sm text-muted-foreground">Chat with your documents intelligently</p>
         </div>
 
-        <Card className="shadow-lg border-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
+        <Card className="">
           <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-xl">Welcome back</CardTitle>
+            <CardTitle>Welcome back</CardTitle>
             <CardDescription>Sign in to your account to continue</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

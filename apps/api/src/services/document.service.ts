@@ -1,0 +1,37 @@
+import fs from "fs";
+import {
+  createDocument,
+  getDocumentsByUser,
+  getDocumentById,
+  deleteDocument,
+} from "../repositories/document.repository.js";
+
+export async function uploadDocument(
+  userId: string,
+  file: Express.Multer.File
+) {
+  return createDocument({
+    userId,
+    name: file.originalname,
+    mimeType: file.mimetype,
+    storagePath: file.path,
+    status: "pending",
+  });
+}
+
+export async function listDocuments(userId: string) {
+  return getDocumentsByUser(userId);
+}
+
+export async function removeDocument(userId: string, documentId: string) {
+  const doc = await getDocumentById(documentId);
+  if (!doc) return null;
+  if (doc.userId !== userId) throw new Error("Forbidden");
+
+  if (fs.existsSync(doc.storagePath)) {
+    fs.unlinkSync(doc.storagePath);
+  }
+
+  await deleteDocument(documentId);
+  return doc;
+}
