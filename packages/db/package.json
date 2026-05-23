@@ -19,7 +19,7 @@
     "pg": "^8.16.0"
   },
   "devDependencies": {
-    "@repo/typescript-config": "*",
+    "@repo/typescript-config": "workspace:*",
     "@types/dotenv": "^8.2.3",
     "@types/node": "^25.9.1",
     "@types/pg": "^8.11.13",

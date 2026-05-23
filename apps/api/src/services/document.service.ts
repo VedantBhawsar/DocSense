@@ -5,18 +5,31 @@ import {
   getDocumentById,
   deleteDocument,
 } from "../repositories/document.repository.js";
+import { createPdfQueue } from "@docsense/queue";
+
+const pdfQueue = createPdfQueue();
 
 export async function uploadDocument(
   userId: string,
   file: Express.Multer.File
 ) {
-  return createDocument({
+  const doc = await createDocument({
     userId,
     name: file.originalname,
     mimeType: file.mimetype,
     storagePath: file.path,
     status: "pending",
   });
+
+  await pdfQueue.add("process-pdf", {
+    documentId: doc.id,
+    userId,
+    storagePath: file.path,
+    mimeType: file.mimetype,
+    fileName: file.originalname,
+  });
+
+  return doc;
 }
 
 export async function listDocuments(userId: string) {

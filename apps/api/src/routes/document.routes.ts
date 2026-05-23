@@ -6,6 +6,7 @@ import {
   listDocumentsHandler,
   deleteDocumentHandler,
 } from "../controllers/document.controller.js";
+import { documentProgressHandler } from "../controllers/progress.controller.js";
 
 const router = Router();
 
@@ -13,6 +14,7 @@ router.use(authenticate);
 
 router.post("/", upload.single("file"), uploadDocumentHandler);
 router.get("/", listDocumentsHandler);
+router.get("/:id/progress", documentProgressHandler);
 router.delete("/:id", deleteDocumentHandler);
 
 export { router as documentRouter };

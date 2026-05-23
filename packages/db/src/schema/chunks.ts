@@ -22,7 +22,7 @@ export const chunks = pgTable(
       .notNull()
       .references(() => documents.id, { onDelete: "cascade" }),
     content: text("content").notNull(),
-    embedding: vector("embedding", { dimensions: 1536 }).notNull(),
+    embedding: vector("embedding", { dimensions: 4096 }).notNull(),
     chunkIndex: integer("chunk_index").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
