@@ -1,0 +1,40 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: docsense_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-docsense}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-docsense}
+      POSTGRES_DB: ${POSTGRES_DB:-docsense}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-docsense}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: docsense_api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./apps/api/.env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-docsense}:${POSTGRES_PASSWORD:-docsense}@db:5432/${POSTGRES_DB:-docsense}
+    ports:
+      - "3001:3001"
+    volumes:
+      - uploads:/app/uploads
+
+volumes:
+  pgdata:
+  uploads:

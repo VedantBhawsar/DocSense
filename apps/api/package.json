@@ -1,0 +1,30 @@
+{
+  "name": "api",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node --loader ts-node/esm src/app.ts",
+    "dev": "nodemon --exec \"node --loader ts-node/esm\" index.ts",
+    "build": "tsc",
+    "db:generate": "turbo run db:generate --filter=@docsense/db",
+    "db:migrate": "turbo run db:migrate --filter=@docsense/db",
+    "db:push": "turbo run db:push --filter=@docsense/db",
+    "db:studio": "turbo run db:studio --filter=@docsense/db"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "nodemon": "^3.1.14",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.22.3"
+  },
+  "peerDependencies": {
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@docsense/db": "workspace:*",
+    "@types/express": "^5.0.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1"
+  }
+}
