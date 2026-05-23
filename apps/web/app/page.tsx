@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useState, useRef, useEffect, useCallback } from "react";
 
 type Document = {
@@ -23,6 +24,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 export default function Home() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -279,12 +281,22 @@ export default function Home() {
                       {new Date(doc.createdAt).toLocaleDateString()}
                     </p>
                   </div>
-                  <button
-                    onClick={() => handleDelete(doc.id)}
-                    className="text-xs px-2.5 py-1 border border-red-200 rounded-md bg-red-50 text-red-600 hover:bg-red-100 cursor-pointer"
-                  >
-                    Delete
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {doc.status === "ready" && (
+                      <button
+                        onClick={() => router.push(`/chat/${doc.id}`)}
+                        className="text-xs px-2.5 py-1 border border-blue-200 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 cursor-pointer"
+                      >
+                        Chat
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDelete(doc.id)}
+                      className="text-xs px-2.5 py-1 border border-red-200 rounded-md bg-red-50 text-red-600 hover:bg-red-100 cursor-pointer"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
 
                 {p?.stage === "processing" && (

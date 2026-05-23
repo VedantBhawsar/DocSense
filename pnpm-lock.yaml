@@ -57,9 +57,12 @@ importers:
       multer:
         specifier: ^1.4.5-lts.2
         version: 1.4.5-lts.2
+      openai:
+        specifier: ^4.104.0
+        version: 4.104.0(ws@8.20.1)(zod@4.4.3)
       typescript:
         specifier: ^6.0.3
-        version: 6.0.3
+        version: 5.9.2
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -81,7 +84,7 @@ importers:
         version: 3.1.14
       ts-node:
         specifier: ^10.9.2
-        version: 10.9.2(@types/node@25.9.1)(typescript@6.0.3)
+        version: 10.9.2(@types/node@25.9.1)(typescript@5.9.2)
       tsx:
         specifier: ^4.22.3
         version: 4.22.3
@@ -4040,6 +4043,18 @@ packages:
     resolution: {integrity: sha512-smsWv2LzFjP03xmvFoJ331ss6h+jixfA4UUV/Bsiyuu4YJPfN+FIQGOIiv4w9/+MoHkfkJ22UIaQWRVFRfH6Vw==}
     engines: {node: '>=20'}
 
+  openai@4.104.0:
+    resolution: {integrity: sha512-p99EFNsA/yX6UhVO93f5kJsDRLAg+CTA2RBqdHK4RtK8u5IJw32Hyb2dTGKbnnFmnuoBv5r7Z2CURI9sGZpSuA==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.23.8
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
+
   openai@6.39.0:
     resolution: {integrity: sha512-O61LIsimY3acVabwvomwFhwrnN36yvHY2quIfy9keEcFytGgWeV35yLHQ6NVMLSBxRpHmcg2yuhCnlu2HT4pLQ==}
     hasBin: true
@@ -4794,11 +4809,6 @@ packages:
 
   typescript@5.9.2:
     resolution: {integrity: sha512-CWBzXQrc/qOkhidw1OzBTQuYRbfyxDXJMVJ1XNwUHGROVmuaeiEm3OslpZ1RV96d7SKKjZKrSJu3+t/xlw3R9A==}
-    engines: {node: '>=14.17'}
-    hasBin: true
-
-  typescript@6.0.3:
-    resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
     engines: {node: '>=14.17'}
     hasBin: true
 
@@ -6286,7 +6296,7 @@ snapshots:
 
   '@types/set-cookie-parser@2.4.10':
     dependencies:
-      '@types/node': 22.19.19
+      '@types/node': 25.9.1
 
   '@types/statuses@2.0.6': {}
 
@@ -7588,7 +7598,7 @@ snapshots:
       jsonwebtoken: 9.0.3
       load-esm: 1.0.3
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.16.1(debug@4.3.4))
+      retry-axios: 2.6.0(axios@1.16.1)
       tough-cookie: 4.1.3
     transitivePeerDependencies:
       - supports-color
@@ -8311,6 +8321,21 @@ snapshots:
       powershell-utils: 0.1.0
       wsl-utils: 0.3.1
 
+  openai@4.104.0(ws@8.20.1)(zod@4.4.3):
+    dependencies:
+      '@types/node': 18.19.130
+      '@types/node-fetch': 2.6.13
+      abort-controller: 3.0.0
+      agentkeepalive: 4.6.0
+      form-data-encoder: 1.7.2
+      formdata-node: 4.4.1
+      node-fetch: 2.7.0
+    optionalDependencies:
+      ws: 8.20.1
+      zod: 4.4.3
+    transitivePeerDependencies:
+      - encoding
+
   openai@6.39.0(ws@8.20.1)(zod@4.4.3):
     optionalDependencies:
       ws: 8.20.1
@@ -8655,7 +8680,7 @@ snapshots:
       onetime: 7.0.0
       signal-exit: 4.1.0
 
-  retry-axios@2.6.0(axios@1.16.1(debug@4.3.4)):
+  retry-axios@2.6.0(axios@1.16.1):
     dependencies:
       axios: 1.16.1(debug@4.3.4)
 
@@ -9072,7 +9097,7 @@ snapshots:
       '@ts-morph/common': 0.27.0
       code-block-writer: 13.0.3
 
-  ts-node@10.9.2(@types/node@25.9.1)(typescript@6.0.3):
+  ts-node@10.9.2(@types/node@25.9.1)(typescript@5.9.2):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       '@tsconfig/node10': 1.0.12
@@ -9086,7 +9111,7 @@ snapshots:
       create-require: 1.1.1
       diff: 4.0.4
       make-error: 1.3.6
-      typescript: 6.0.3
+      typescript: 5.9.2
       v8-compile-cache-lib: 3.0.1
       yn: 3.1.1
 
@@ -9181,8 +9206,6 @@ snapshots:
       - supports-color
 
   typescript@5.9.2: {}
-
-  typescript@6.0.3: {}
 
   uglify-js@3.19.3:
     optional: true
