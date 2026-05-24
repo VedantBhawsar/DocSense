@@ -8,6 +8,7 @@ import { subscriptionRouter } from "./subscription.routes.js"
 const router = Router()
 
 router.use("/auth", userRouter)
+router.use("/users", userRouter)
 router.use("/documents", documentRouter)
 router.use("/chats", chatRouter)
 router.use("/search", searchRouter)

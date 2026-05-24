@@ -20,6 +20,15 @@ export const resetPasswordSchema = z.object({
   password: z.string().min(8),
 })
 
+export const sendOtpSchema = z.object({
+  email: z.string().email(),
+})
+
+export const verifyOtpSchema = z.object({
+  email: z.string().email(),
+  otp: z.string().length(6),
+})
+
 export interface SignupBody {
   name: string
   email: string

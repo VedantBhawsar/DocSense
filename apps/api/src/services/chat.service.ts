@@ -7,6 +7,8 @@ import {
   findSimilarChunks,
   updateChatShareToken,
   getChatByShareToken,
+  countChatsByUser,
+  countMessagesByChatId,
 } from "../repositories/chat.repository.js";
 import { randomUUID } from "crypto";
 import { embedQuery } from "./embedding.service.js";
@@ -14,9 +16,22 @@ import { streamAnswer, type LLMMessage } from "../lib/llm.js";
 import { checkMessageLimit, currentMonth } from "./subscription.service.js";
 import { incrementUsage } from "../repositories/subscription.repository.js";
 
+const MAX_CHATS_PER_USER = 3;
+const MAX_MESSAGES_PER_CHAT = 3;
+
 export async function getOrCreateChat(userId: string, documentId: string) {
   const existing = await getChatByDocumentAndUser(documentId, userId);
   if (existing) return existing;
+
+  const chatCount = await countChatsByUser(userId);
+  if (chatCount >= MAX_CHATS_PER_USER) {
+    const err = Object.assign(new Error(`You can only create up to ${MAX_CHATS_PER_USER} chats. Please delete an existing chat to create a new one.`), {
+      status: 403,
+      code: "CHAT_LIMIT",
+    });
+    throw err;
+  }
+
   return createChat({ userId, documentId, title: null });
 }
 
@@ -40,6 +55,15 @@ export async function* sendMessageStream(
 
   await checkMessageLimit(userId);
 
+  const messageCount = await countMessagesByChatId(chatId);
+  if (messageCount >= MAX_MESSAGES_PER_CHAT) {
+    const err = Object.assign(new Error(`You can only send ${MAX_MESSAGES_PER_CHAT} messages per document. Upgrade to Pro for unlimited messages.`), {
+      status: 403,
+      code: "MESSAGE_LIMIT",
+    });
+    throw err;
+  }
+
   const [chat, queryEmbedding] = await Promise.all([
     getChatById(chatId),
     embedQuery(userText),
@@ -57,7 +81,7 @@ export async function* sendMessageStream(
   console.log(`[chat] addMessage + getHistory: ${Date.now() - t1}ms`);
 
   const t2 = Date.now();
-  const similarChunks = await findSimilarChunks(chat.documentId, queryEmbedding, 10);
+  const similarChunks = await findSimilarChunks(chat.documentId, queryEmbedding, 5);
   console.log(`[chat] findSimilarChunks: ${Date.now() - t2}ms (${similarChunks.length} chunks)`);
 
   const context = similarChunks.map((c, i) => {
@@ -65,9 +89,6 @@ export async function* sendMessageStream(
     const pageLabel = loc?.pageNumber != null ? ` (Page ${loc.pageNumber})` : "";
     return `[Excerpt ${i + 1}${pageLabel}]\n${c.content}`;
   }).join("\n\n");
-
-
-  console.log("context", context)
 
 const systemPrompt = `
 You are a professional document assistant.

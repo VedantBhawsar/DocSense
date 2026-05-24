@@ -23,6 +23,18 @@ function makeError(message: string, status: number) {
 }
 
 export const emailService = {
+  async sendVerificationEmail(email: string, otp: string): Promise<void> {
+    await transporter.sendMail({
+      from: SMTP_FROM,
+      to: email,
+      subject: "Verify your DocSense account",
+      html: `
+        <p>Your verification code is: <strong>${otp}</strong></p>
+        <p>This code expires in 10 minutes.</p>
+      `,
+    })
+  },
+
   async sendPasswordResetEmail(email: string): Promise<void> {
     const user = await userRepository.findByEmail(email)
     if (!user) return

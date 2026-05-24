@@ -11,6 +11,7 @@ import type { Job } from "bullmq";
 import OpenAI from "openai";
 import { TokenTextSplitter } from "@langchain/textsplitters";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
+import { DocxLoader } from "@langchain/community/document_loaders/fs/docx";
 import pLimit from "p-limit";
 
 const redis = createRedisConnection();
@@ -24,7 +25,7 @@ function cleanText(text: string) {
 }
 
 async function processPdf(job: Job<PdfJobData>): Promise<void> {
-  const { documentId, storagePath, fileName } = job.data;
+  const { documentId, storagePath, fileName, mimeType } = job.data;
 
   console.log(
     `[worker] processing job ${job.id} — document ${documentId} (${fileName})`,
@@ -40,7 +41,10 @@ async function processPdf(job: Job<PdfJobData>): Promise<void> {
   await publishProgress(redis, documentId, { event: "processing" });
 
   try {
-    const loader = new PDFLoader(storagePath);
+    const isDocx = mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    const loader = isDocx
+      ? new DocxLoader(storagePath)
+      : new PDFLoader(storagePath);
 
     const docs = await loader.load();
     const openai = new OpenAI({

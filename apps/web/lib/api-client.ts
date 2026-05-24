@@ -16,6 +16,32 @@ export async function apiClient(path: string, options?: RequestInit) {
   })
 }
 
+export async function sendOtp(email: string) {
+  const res = await fetch(`${API_URL}/api/v1/auth/send-otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  })
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.message || "Failed to send OTP")
+  }
+  return res.json()
+}
+
+export async function verifyOtp(email: string, otp: string) {
+  const res = await fetch(`${API_URL}/api/v1/auth/verify-otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, otp }),
+  })
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.message || "Failed to verify OTP")
+  }
+  return res.json()
+}
+
 export async function forgotPassword(email: string) {
   const res = await fetch(`${API_URL}/api/v1/auth/forgot-password`, {
     method: "POST",

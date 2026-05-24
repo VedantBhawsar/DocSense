@@ -1,12 +1,15 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
 import { useTheme } from "next-themes"
-import { FileText, Home, LogOut, Sun, Moon, CreditCard } from "lucide-react"
+import { FileText, Home, LogOut, Sun, Moon, CreditCard, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { ProfileEditDialog } from "@/components/profile/profile-edit-dialog"
 
 const navLinks = [
   { href: "/", label: "Documents", icon: Home },
@@ -17,6 +20,8 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname()
   const { data: session } = useSession()
   const { resolvedTheme, setTheme } = useTheme()
+  const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false)
+  const [profileEditOpen, setProfileEditOpen] = useState(false)
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
@@ -48,11 +53,14 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
 
       <div className="border-t border-sidebar-border px-3 py-3 shrink-0">
         {session?.user && (
-          <div className="mb-2 flex items-center gap-2.5 px-1">
+          <button
+            onClick={() => setProfileEditOpen(true)}
+            className="mb-2 flex w-full items-center gap-2.5 rounded-lg px-1 py-1.5 transition-colors hover:bg-sidebar-accent/50 cursor-pointer"
+          >
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
               {(session.user.name ?? session.user.email ?? "?")[0]?.toUpperCase()}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1 text-left">
               <p className="truncate text-xs font-medium leading-tight">
                 {session.user.name ?? "User"}
               </p>
@@ -60,14 +68,15 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
                 {session.user.email}
               </p>
             </div>
-          </div>
+            <User className="h-3.5 w-3.5 shrink-0 text-sidebar-foreground/40" />
+          </button>
         )}
         <div className="flex items-center gap-1 mb-1">
           <Button
             variant="ghost"
             size="sm"
             className="flex-1 justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground"
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={() => setSignOutConfirmOpen(true)}
             aria-label="Sign out"
           >
             <LogOut className="h-4 w-4" />
@@ -84,6 +93,19 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
           </Button>
         </div>
       </div>
+      <ConfirmDialog
+        open={signOutConfirmOpen}
+        onOpenChange={setSignOutConfirmOpen}
+        title="Sign out"
+        description="Are you sure you want to sign out?"
+        confirmText="Sign out"
+        variant="default"
+        onConfirm={() => signOut({ callbackUrl: "/login" })}
+      />
+      <ProfileEditDialog
+        open={profileEditOpen}
+        onOpenChange={setProfileEditOpen}
+      />
     </div>
   )
 }

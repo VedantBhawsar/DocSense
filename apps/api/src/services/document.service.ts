@@ -6,10 +6,9 @@ import {
   deleteDocument,
   renameDocument as renameDocumentRepo,
   updateDocumentStatus,
+  countDocumentsByUser,
 } from "../repositories/document.repository.js";
 import { createPdfQueue } from "@docsense/queue";
-import { checkDocumentLimit, currentMonth } from "./subscription.service.js";
-import { incrementUsage } from "../repositories/subscription.repository.js";
 
 const pdfQueue = createPdfQueue();
 
@@ -17,7 +16,14 @@ export async function uploadDocument(
   userId: string,
   file: Express.Multer.File
 ) {
-  await checkDocumentLimit(userId);
+  const count = await countDocumentsByUser(userId);
+  if (count >= 1) {
+    const err = Object.assign(new Error("You can only upload 1 document. Please delete your existing document to upload a new one."), {
+      status: 403,
+      code: "DOCUMENT_LIMIT",
+    });
+    throw err;
+  }
 
   const doc = await createDocument({
     userId,
@@ -34,8 +40,6 @@ export async function uploadDocument(
     mimeType: file.mimetype,
     fileName: file.originalname,
   });
-
-  await incrementUsage(userId, currentMonth(), "documentCount");
 
   return doc;
 }

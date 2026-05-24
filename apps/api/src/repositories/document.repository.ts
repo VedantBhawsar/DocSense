@@ -27,6 +27,14 @@ export async function getDocumentsByUser(userId: string) {
   return rows;
 }
 
+export async function countDocumentsByUser(userId: string) {
+  const rows = await db
+    .select({ count: count(documents.id) })
+    .from(documents)
+    .where(eq(documents.userId, userId));
+  return rows[0]?.count ?? 0;
+}
+
 export async function getDocumentById(id: string) {
   const [doc] = await db.select().from(documents).where(eq(documents.id, id));
   return doc ?? null;

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -12,25 +12,41 @@ import { FileText, Loader2 } from "lucide-react"
 
 const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001"
 
+type Step = "form" | "verification"
+
 export default function SignupPage() {
   const router = useRouter()
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [step, setStep] = useState<Step>("form")
+  const [email, setEmail] = useState("")
+  const [otp, setOtp] = useState(["", "", "", "", "", ""])
+  const [countdown, setCountdown] = useState(0)
+  const [resendLoading, setResendLoading] = useState(false)
+  const [verifyLoading, setVerifyLoading] = useState(false)
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [countdown])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
     setError("")
     const data = new FormData(e.currentTarget)
-    const email = data.get("email") as string
+    const emailVal = data.get("email") as string
     const password = data.get("password") as string
     const name = data.get("name") as string
 
     const res = await fetch(`${API_URL}/api/v1/auth/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email: emailVal, password }),
     })
 
     if (!res.ok) {
@@ -40,19 +56,159 @@ export default function SignupPage() {
       return
     }
 
-    const result = await signIn("credentials", { email, password, redirect: false })
+    const result = await res.json() as { needsVerification: boolean }
+    if (result.needsVerification) {
+      setEmail(emailVal)
+      setStep("verification")
+      setCountdown(60)
+    }
     setLoading(false)
-    if (result?.error) {
-      setError("Account created but sign-in failed. Please log in.")
+  }
+
+  async function handleResendOTP() {
+    setResendLoading(true)
+    const res = await fetch(`${API_URL}/api/v1/auth/send-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    })
+    setResendLoading(false)
+    if (res.ok) {
+      setCountdown(60)
+      setOtp(["", "", "", "", "", ""])
+      otpRefs.current[0]?.focus()
+    }
+  }
+
+  async function handleVerifyOTP() {
+    setVerifyLoading(true)
+    setError("")
+    const otpVal = otp.join("")
+    if (otpVal.length !== 6) {
+      setError("Please enter a complete 6-digit code")
+      setVerifyLoading(false)
+      return
+    }
+
+    const res = await fetch(`${API_URL}/api/v1/auth/verify-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, otp: otpVal }),
+    })
+
+    if (!res.ok) {
+      const body = (await res.json()) as { error?: string }
+      setError(body.error ?? "Verification failed")
+      setVerifyLoading(false)
+      return
+    }
+
+    const loginResult = await signIn("credentials", { email, password: "", redirect: false })
+    setVerifyLoading(false)
+    if (loginResult?.error) {
       router.push("/login")
     } else {
       router.push("/")
     }
   }
 
+  function handleOtpChange(index: number, value: string) {
+    if (!/^\d*$/.test(value)) return
+    const newOtp = [...otp]
+    newOtp[index] = value.slice(-1)
+    setOtp(newOtp)
+
+    if (value && index < 5) {
+      otpRefs.current[index + 1]?.focus()
+    }
+
+    if (newOtp.every((d) => d !== "") && newOtp.join("").length === 6) {
+      handleVerifyOTP()
+    }
+  }
+
+  function handleOtpKeyDown(index: number, e: React.KeyboardEvent) {
+    if (e.key === "Backspace" && !otp[index] && index > 0) {
+      otpRefs.current[index - 1]?.focus()
+    }
+  }
+
   async function handleGoogle() {
     setGoogleLoading(true)
     await signIn("google", { callbackUrl: "/" })
+  }
+
+  if (step === "verification") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-4">
+        <Card className="w-full max-w-md shadow-lg border-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
+          <CardHeader className="space-y-1 pb-4">
+            <CardTitle className="text-xl">Verify your email</CardTitle>
+            <CardDescription>
+              We sent a code to <strong>{email}</strong>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2 justify-center">
+              {otp.map((digit, i) => (
+                <Input
+                  key={i}
+                  ref={(el) => { otpRefs.current[i] = el }}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleOtpChange(i, e.target.value)}
+                  onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                  className="w-12 h-12 text-center text-lg font-semibold"
+                />
+              ))}
+            </div>
+
+            {error && (
+              <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-2 text-center">
+                {error}
+              </p>
+            )}
+
+            <Button
+              type="button"
+              className="w-full"
+              onClick={handleVerifyOTP}
+              disabled={verifyLoading || otp.join("").length !== 6}
+            >
+              {verifyLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Verify code
+            </Button>
+
+            <div className="text-center text-sm text-muted-foreground">
+              {countdown > 0 ? (
+                <span>Resend code in {countdown}s</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleResendOTP}
+                  disabled={resendLoading}
+                  className="text-primary hover:underline disabled:opacity-50"
+                >
+                  {resendLoading ? "Sending..." : "Resend code"}
+                </button>
+              )}
+            </div>
+
+            <p className="text-center text-sm text-muted-foreground">
+              <button
+                type="button"
+                onClick={() => setStep("form")}
+                className="text-primary hover:underline"
+              >
+                Use a different email
+              </button>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
