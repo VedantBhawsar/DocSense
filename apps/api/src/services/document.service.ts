@@ -4,6 +4,7 @@ import {
   getDocumentsByUser,
   getDocumentById,
   deleteDocument,
+  renameDocument as renameDocumentRepo,
 } from "../repositories/document.repository.js";
 import { createPdfQueue } from "@docsense/queue";
 
@@ -34,6 +35,13 @@ export async function uploadDocument(
 
 export async function listDocuments(userId: string) {
   return getDocumentsByUser(userId);
+}
+
+export async function renameDocument(userId: string, documentId: string, name: string) {
+  const doc = await getDocumentById(documentId);
+  if (!doc) return null;
+  if (doc.userId !== userId) throw new Error("Forbidden");
+  return renameDocumentRepo(documentId, name);
 }
 
 export async function removeDocument(userId: string, documentId: string) {

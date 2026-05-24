@@ -18,3 +18,12 @@ export async function getDocumentById(id: string) {
 export async function deleteDocument(id: string) {
   await db.delete(documents).where(eq(documents.id, id));
 }
+
+export async function renameDocument(id: string, name: string) {
+  const [doc] = await db
+    .update(documents)
+    .set({ name })
+    .where(eq(documents.id, id))
+    .returning();
+  return doc ?? null;
+}

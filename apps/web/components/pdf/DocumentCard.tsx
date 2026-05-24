@@ -1,4 +1,7 @@
-import { FileText, MessageSquare, Trash2, Loader2 } from "lucide-react"
+"use client"
+
+import { useState, useRef, useEffect } from "react"
+import { FileText, MessageSquare, Trash2, Loader2, Pencil } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -23,6 +26,7 @@ interface DocumentCardProps {
   progress?: DocProgress
   onChat: () => void
   onDelete: () => void
+  onRename?: (id: string, newName: string) => void
 }
 
 function formatDate(iso: string) {
@@ -33,9 +37,41 @@ function formatDate(iso: string) {
   })
 }
 
-export function DocumentCard({ document: doc, progress, onChat, onDelete }: DocumentCardProps) {
+export function DocumentCard({ document: doc, progress, onChat, onDelete, onRename }: DocumentCardProps) {
   const isChunking = progress?.stage === "chunk"
   const pct = isChunking ? Math.round((progress.index / progress.total) * 100) : 0
+
+  const [editing, setEditing] = useState(false)
+  const [draftName, setDraftName] = useState(doc.name)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }
+  }, [editing])
+
+  function startEdit() {
+    setDraftName(doc.name)
+    setEditing(true)
+  }
+
+  async function commitEdit() {
+    const trimmed = draftName.trim()
+    setEditing(false)
+    if (!trimmed || trimmed === doc.name) return
+    onRename?.(doc.id, trimmed)
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      commitEdit()
+    } else if (e.key === "Escape") {
+      setEditing(false)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3 transition-colors duration-200 hover:shadow-sm">
@@ -45,9 +81,29 @@ export function DocumentCard({ document: doc, progress, onChat, onDelete }: Docu
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-foreground" title={doc.name}>
-            {doc.name}
-          </p>
+          {editing ? (
+            <input
+              ref={inputRef}
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              onBlur={commitEdit}
+              onKeyDown={handleKeyDown}
+              className="w-full truncate rounded border border-border bg-background px-1 py-0 text-sm font-medium text-foreground outline-none focus:ring-1 focus:ring-ring"
+            />
+          ) : (
+            <div className="group flex items-center gap-1">
+              <p className="truncate text-sm font-medium text-foreground" title={doc.name}>
+                {doc.name}
+              </p>
+              <button
+                onClick={startEdit}
+                aria-label={`Rename ${doc.name}`}
+                className="invisible shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:visible group-hover:opacity-100"
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
+            </div>
+          )}
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
             <span className="text-xs text-muted-foreground">
               {doc.mimeType === "application/pdf" ? "PDF" : "DOCX"}

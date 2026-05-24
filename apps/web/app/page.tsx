@@ -141,6 +141,22 @@ export default function Home() {
     }
   }
 
+  async function handleRename(id: string, newName: string) {
+    const res = await fetch(`${API_URL}/api/v1/documents/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.accessToken}`,
+      },
+      body: JSON.stringify({ name: newName }),
+    });
+    if (res.ok) {
+      setDocuments((prev) =>
+        prev.map((d) => (d.id === id ? { ...d, name: newName } : d))
+      );
+    }
+  }
+
   async function handleDelete(id: string) {
     esRefs.current[id]?.close();
     delete esRefs.current[id];
@@ -234,6 +250,7 @@ export default function Home() {
                   progress={progress[doc.id]}
                   onChat={() => router.push(`/chat/${doc.id}`)}
                   onDelete={() => handleDelete(doc.id)}
+                  onRename={handleRename}
                 />
               ))}
             </div>
