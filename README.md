@@ -1,4 +1,6 @@
-# DocSense
+# DocSense 
+
+[Demo](https://www.loom.com/share/f5cfbf0b98a74c42ad14dae0545605c4)
 
 **Upload PDFs. Ask questions. Get answers.**
 
