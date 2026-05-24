@@ -21,8 +21,9 @@ export default withAuth(
         const isAuthPage =
           pathname.startsWith("/login") ||
           pathname.startsWith("/signup")
+        const isPublicPage = pathname.startsWith("/share")
 
-        if (isAuthPage) return true
+        if (isAuthPage || isPublicPage) return true
         return !!token
       },
     },

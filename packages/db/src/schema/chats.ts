@@ -13,6 +13,7 @@ export const chats = pgTable("chats", {
     .notNull()
     .references(() => documents.id, { onDelete: "cascade" }),
   title: text("title"),
+  shareToken: text("share_token").unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

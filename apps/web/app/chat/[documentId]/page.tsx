@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ArrowLeft, AlertCircle, RotateCcw, Download } from "lucide-react";
+import { ArrowLeft, AlertCircle, RotateCcw, Download, Share2, Link, X } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -28,6 +28,9 @@ export default function ChatPage() {
   const [state, setState] = useState<ChatState>("loading");
   const [sendError, setSendError] = useState("");
   const [docName, setDocName] = useState<string>("");
+  const [shareToken, setShareToken] = useState<string | null>(null);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -50,6 +53,7 @@ export default function ChatPage() {
       if (!chatRes.ok) throw new Error("Failed to initialize chat");
       const { chat } = await chatRes.json();
       setChatId(chat.id);
+      setShareToken(chat.shareToken ?? null);
 
       if (docRes.ok) {
         const { documents } = await docRes.json();
@@ -186,6 +190,30 @@ export default function ChatPage() {
     URL.revokeObjectURL(url);
   }
 
+  async function handleShare() {
+    if (!chatId || !token) return;
+    setShareLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/chats/${chatId}/share`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error();
+      const { shareToken: newToken } = await res.json();
+      setShareToken(newToken);
+      if (newToken) {
+        const url = `${window.location.origin}/share/${newToken}`;
+        await navigator.clipboard.writeText(url);
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 3000);
+      }
+    } catch {
+      // silently ignore
+    } finally {
+      setShareLoading(false);
+    }
+  }
+
   if (!session) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
@@ -214,16 +242,43 @@ export default function ChatPage() {
         </div>
       </div>
       {messages.length > 0 && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleExport}
-          className="shrink-0 gap-1.5 transition-colors duration-200"
-          aria-label="Export chat as markdown"
-        >
-          <Download className="h-3.5 w-3.5" />
-          Export
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            variant={shareToken ? "default" : "outline"}
+            size="sm"
+            onClick={handleShare}
+            disabled={shareLoading}
+            className="gap-1.5 transition-colors duration-200"
+            aria-label={shareToken ? "Revoke share link" : "Share chat"}
+          >
+            {shareCopied ? (
+              <>
+                <Link className="h-3.5 w-3.5" />
+                Copied!
+              </>
+            ) : shareToken ? (
+              <>
+                <X className="h-3.5 w-3.5" />
+                Unshare
+              </>
+            ) : (
+              <>
+                <Share2 className="h-3.5 w-3.5" />
+                Share
+              </>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+            className="gap-1.5 transition-colors duration-200"
+            aria-label="Export chat as markdown"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export
+          </Button>
+        </div>
       )}
     </div>
   );

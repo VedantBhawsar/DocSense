@@ -30,13 +30,13 @@ export default function LoginPage() {
     if (result?.error) {
       setError("Invalid email or password")
     } else {
-      router.push("/dashboard")
+      router.push("/")
     }
   }
 
   async function handleGoogle() {
     setGoogleLoading(true)
-    await signIn("google", { callbackUrl: "/dashboard" })
+    await signIn("google", { callbackUrl: "/" })
   }
 
   return (

@@ -5,7 +5,10 @@ import {
   getMessagesByChatId,
   addMessage,
   findSimilarChunks,
+  updateChatShareToken,
+  getChatByShareToken,
 } from "../repositories/chat.repository.js";
+import { randomUUID } from "crypto";
 import { embedQuery } from "./embedding.service.js";
 import { streamAnswer, type LLMMessage } from "../lib/llm.js";
 import { checkMessageLimit, currentMonth } from "./subscription.service.js";
@@ -139,6 +142,23 @@ The response should look like high-quality documentation, not casual chat.
 
   await addMessage({ chatId, role: "assistant", content: fullResponse });
   await incrementUsage(userId, currentMonth(), "messageCount");
+}
+
+export async function toggleShareLink(chatId: string, userId: string) {
+  const chat = await getChatById(chatId);
+  if (!chat) throw Object.assign(new Error("Chat not found"), { status: 404 });
+  if (chat.userId !== userId) throw Object.assign(new Error("Forbidden"), { status: 403 });
+
+  const newToken = chat.shareToken ? null : randomUUID();
+  const updated = await updateChatShareToken(chatId, newToken);
+  return { shareToken: updated?.shareToken ?? null };
+}
+
+export async function getSharedChatMessages(shareToken: string) {
+  const chat = await getChatByShareToken(shareToken);
+  if (!chat) throw Object.assign(new Error("Shared chat not found"), { status: 404 });
+  const msgs = await getMessagesByChatId(chat.id);
+  return { chat, messages: msgs };
 }
 
 export async function exportChatMarkdown(chatId: string, userId: string) {

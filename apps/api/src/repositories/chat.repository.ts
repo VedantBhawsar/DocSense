@@ -33,6 +33,20 @@ export async function addMessage(data: NewMessage) {
   return msg!;
 }
 
+export async function updateChatShareToken(chatId: string, shareToken: string | null) {
+  const [chat] = await db
+    .update(chats)
+    .set({ shareToken })
+    .where(eq(chats.id, chatId))
+    .returning();
+  return chat ?? null;
+}
+
+export async function getChatByShareToken(shareToken: string) {
+  const [chat] = await db.select().from(chats).where(eq(chats.shareToken, shareToken));
+  return chat ?? null;
+}
+
 export async function findSimilarChunks(documentId: string, embedding: number[], topK = 5) {
   const vectorLiteral = `[${embedding.join(",")}]`;
 

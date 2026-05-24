@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { getOrCreateChat, loadChatMessages, sendMessageStream, exportChatMarkdown } from "../services/chat.service.js";
+import { getOrCreateChat, loadChatMessages, sendMessageStream, exportChatMarkdown, toggleShareLink, getSharedChatMessages } from "../services/chat.service.js";
 
 export async function getOrCreateChatHandler(req: Request, res: Response) {
   const { documentId } = req.body as { documentId?: string };
@@ -23,6 +23,24 @@ export async function exportChatHandler(req: Request, res: Response) {
     res.setHeader("Content-Type", "text/markdown; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     res.send(markdown);
+  } catch (err: any) {
+    res.status(err?.status ?? 500).json({ error: err.message });
+  }
+}
+
+export async function toggleShareHandler(req: Request, res: Response) {
+  try {
+    const result = await toggleShareLink(req.params["chatId"]! as string, req.user!.id);
+    res.json(result);
+  } catch (err: any) {
+    res.status(err?.status ?? 500).json({ error: err.message });
+  }
+}
+
+export async function getSharedChatHandler(req: Request, res: Response) {
+  try {
+    const result = await getSharedChatMessages(req.params["shareToken"]! as string);
+    res.json(result);
   } catch (err: any) {
     res.status(err?.status ?? 500).json({ error: err.message });
   }

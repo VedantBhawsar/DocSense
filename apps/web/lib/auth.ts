@@ -2,7 +2,7 @@ import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"
+const API_URL = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"
 const INTERNAL_SECRET = process.env.INTERNAL_SECRET ?? ""
 
 async function refreshBackendTokens(refreshToken: string) {
@@ -54,8 +54,12 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async jwt({ token, user, account }) {
+      console.log("[jwt] called — provider:", account?.provider ?? "none (refresh)")
+      console.log("[jwt] user:", user)
+      console.log("[jwt] token before:", token)
+
       // Initial sign-in — store tokens and expiry
-      if (user) {
+      if (user && account?.provider !== "google") {
         token.id = user.id
         token.accessToken = (user as any).accessToken
         token.refreshToken = (user as any).refreshToken
@@ -63,6 +67,8 @@ export const authOptions: NextAuthOptions = {
       }
 
       if (account?.provider === "google") {
+        console.log("[jwt] google oauth — API_URL:", API_URL)
+        console.log("[jwt] google oauth — sending to backend:", { email: user?.email ?? token.email, name: user?.name ?? token.name })
         const res = await fetch(`${API_URL}/api/v1/auth/oauth`, {
           method: "POST",
           headers: {
@@ -70,17 +76,22 @@ export const authOptions: NextAuthOptions = {
             "x-internal-secret": INTERNAL_SECRET,
           },
           body: JSON.stringify({
-            email: token.email,
-            name: token.name,
+            email: user?.email ?? token.email,
+            name: user?.name ?? token.name,
           }),
         })
 
+        console.log("[jwt] backend response status:", res.status)
         if (res.ok) {
           const { user: apiUser, accessToken, refreshToken } = await res.json()
+          console.log("[jwt] backend oauth success — user:", apiUser)
           token.id = apiUser.id
           token.accessToken = accessToken
           token.refreshToken = refreshToken
           token.accessTokenExpires = Date.now() + 14 * 60 * 1000
+        } else {
+          const body = await res.text()
+          console.error("[jwt] backend oauth failed — body:", body)
         }
       }
 

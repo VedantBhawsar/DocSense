@@ -6,8 +6,8 @@
     "baseUrl": ".",
     "paths": { "@/*": ["./*"] },
     "moduleResolution": "bundler",
-    "skipLibCheck": true, 
-    "ignoreDeprecations": "6.0"
+    "skipLibCheck": true,
+    "ignoreDeprecations": "5.0"
   },
   "include": [
     "**/*.ts",

@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "bun --watch src/index.ts",
-    "start": "bun src/index.ts"
+    "start": "bun dist/src/index.js", 
+    "build":"tsc"
   },
   "dependencies": {
     "@docsense/db": "workspace:*",
