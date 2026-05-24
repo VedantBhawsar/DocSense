@@ -8,6 +8,8 @@ import {
 } from "../repositories/chat.repository.js";
 import { embedQuery } from "./embedding.service.js";
 import { streamAnswer, type LLMMessage } from "../lib/llm.js";
+import { checkMessageLimit, currentMonth } from "./subscription.service.js";
+import { incrementUsage } from "../repositories/subscription.repository.js";
 
 export async function getOrCreateChat(userId: string, documentId: string) {
   const existing = await getChatByDocumentAndUser(documentId, userId);
@@ -32,6 +34,8 @@ export async function* sendMessageStream(
   userText: string
 ): AsyncGenerator<StreamEvent> {
   const t0 = Date.now();
+
+  await checkMessageLimit(userId);
 
   const [chat, queryEmbedding] = await Promise.all([
     getChatById(chatId),
@@ -86,6 +90,7 @@ ${context}`;
   console.log(`[chat] total: ${Date.now() - t0}ms`);
 
   await addMessage({ chatId, role: "assistant", content: fullResponse });
+  await incrementUsage(userId, currentMonth(), "messageCount");
 }
 
 export async function exportChatMarkdown(chatId: string, userId: string) {

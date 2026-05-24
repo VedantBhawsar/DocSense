@@ -8,6 +8,8 @@ import {
   updateDocumentStatus,
 } from "../repositories/document.repository.js";
 import { createPdfQueue } from "@docsense/queue";
+import { checkDocumentLimit, currentMonth } from "./subscription.service.js";
+import { incrementUsage } from "../repositories/subscription.repository.js";
 
 const pdfQueue = createPdfQueue();
 
@@ -15,6 +17,8 @@ export async function uploadDocument(
   userId: string,
   file: Express.Multer.File
 ) {
+  await checkDocumentLimit(userId);
+
   const doc = await createDocument({
     userId,
     name: file.originalname,
@@ -30,6 +34,8 @@ export async function uploadDocument(
     mimeType: file.mimetype,
     fileName: file.originalname,
   });
+
+  await incrementUsage(userId, currentMonth(), "documentCount");
 
   return doc;
 }

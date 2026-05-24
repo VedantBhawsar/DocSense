@@ -4,12 +4,13 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
 import { useTheme } from "next-themes"
-import { FileText, Home, LogOut, Sun, Moon } from "lucide-react"
+import { FileText, Home, LogOut, Sun, Moon, CreditCard } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
 const navLinks = [
   { href: "/", label: "Documents", icon: Home },
+  { href: "/billing", label: "Billing", icon: CreditCard },
 ]
 
 export function Sidebar({ onClose }: { onClose?: () => void }) {
