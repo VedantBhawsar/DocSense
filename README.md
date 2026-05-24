@@ -205,6 +205,139 @@ DocSense/
 
 ---
 
+## Architecture Decisions
+
+### File Upload & Processing Pipeline
+
+```
+Browser                  API (Express)              Redis              Worker               PostgreSQL
+  │                           │                       │                   │                     │
+  │  POST /api/documents      │                       │                   │                     │
+  │  (multipart/form-data)    │                       │                   │                     │
+  │──────────────────────────▶│                       │                   │                     │
+  │                           │  save file to disk    │                   │                     │
+  │                           │  (multer → /uploads)  │                   │                     │
+  │                           │                       │                   │                     │
+  │                           │  INSERT document      │                   │                     │
+  │                           │  status = "pending"   │                   │                     │
+  │                           │──────────────────────────────────────────────────────────────▶ │
+  │                           │                       │                   │                     │
+  │                           │  pdfQueue.add(job)    │                   │                     │
+  │                           │──────────────────────▶│                   │                     │
+  │                           │                       │                   │                     │
+  │  { documentId, status }   │                       │  dequeue job      │                     │
+  │◀──────────────────────────│                       │──────────────────▶│                     │
+  │                           │                       │                   │                     │
+  │  GET /api/documents/:id/progress (SSE)            │  UPDATE status    │                     │
+  │──────────────────────────▶│                       │  = "processing"   │                     │
+  │                           │  subscribe to         │──────────────────────────────────────▶ │
+  │                           │  Redis pub/sub        │                   │                     │
+  │                           │◀─────────────────────▶│                   │  PDFLoader.load()   │
+  │                           │                       │                   │  TokenTextSplitter  │
+  │                           │                       │                   │  (800t / 120 overlap│
+  │                           │                       │                   │                     │
+  │                           │                       │                   │  for each chunk:    │
+  │                           │                       │                   │  NVIDIA NV-Embed-v1 │
+  │                           │                       │                   │  → embedding[]      │
+  │                           │                       │                   │                     │
+  │                           │                       │                   │  INSERT chunk +     │
+  │                           │                       │                   │  pgvector embedding │
+  │                           │                       │                   │──────────────────▶ │
+  │                           │                       │                   │                     │
+  │                           │                       │  publish progress │                     │
+  │  event: chunk {i}/{total} │                       │◀──────────────────│                     │
+  │◀──────────────────────────│◀─────────────────────▶│                   │                     │
+  │         ...               │                       │                   │                     │
+  │  event: ready             │                       │  UPDATE status    │                     │
+  │◀──────────────────────────│◀─────────────────────▶│  = "ready"        │                     │
+  │                           │                       │◀──────────────────│                     │
+```
+
+---
+
+### Retrieval & Chat Pipeline
+
+```
+Browser                  API (Express)           PostgreSQL (pgvector)      LLM (OpenAI-compat)
+  │                           │                           │                         │
+  │  POST /api/chat           │                           │                         │
+  │  { chatId, message }      │                           │                         │
+  │──────────────────────────▶│                           │                         │
+  │                           │                           │                         │
+  │                           │  embedQuery(userText)     │                         │
+  │                           │  → NVIDIA NV-Embed-v1     │                         │
+  │                           │  [0.021, -0.43, ...]      │                         │
+  │                           │                           │                         │
+  │                           │  [parallel]               │                         │
+  │                           │  ├─ getChatById()         │                         │
+  │                           │  └─ embedQuery()          │                         │
+  │                           │                           │                         │
+  │                           │  SELECT chunks            │                         │
+  │                           │  ORDER BY embedding       │                         │
+  │                           │  <=> query_vector         │                         │
+  │                           │  LIMIT 5                  │                         │
+  │                           │──────────────────────────▶│                         │
+  │                           │                           │                         │
+  │                           │  top-5 chunks + metadata  │                         │
+  │                           │◀──────────────────────────│                         │
+  │                           │                           │                         │
+  │                           │  build system prompt:     │                         │
+  │                           │  [DOCUMENT CONTEXT]       │                         │
+  │                           │  Excerpt 1 (Page 3)...    │                         │
+  │                           │  Excerpt 2 (Page 7)...    │                         │
+  │                           │  + last 10 chat messages  │                         │
+  │                           │                           │                         │
+  │                           │  streamAnswer(            │                         │
+  │                           │    systemPrompt,          │                         │
+  │                           │    history,               │                         │
+  │                           │    userText               │                         │
+  │                           │  )                        │                         │
+  │                           │──────────────────────────────────────────────────▶ │
+  │                           │                           │                         │
+  │  token stream (SSE)       │  token stream             │                         │
+  │◀──────────────────────────│◀──────────────────────────────────────────────────▶│
+  │  "## Summary\n..."        │                           │                         │
+  │         ...               │                           │                         │
+  │  [stream end]             │                           │                         │
+  │                           │  INSERT assistant message │                         │
+  │                           │  incrementUsage()         │                         │
+  │                           │──────────────────────────▶│                         │
+```
+
+---
+
+### Why BullMQ over alternatives?
+
+PDF processing in DocSense is the heaviest operation in the system — each document requires parsing, splitting into chunks, and making dozens of embedding API calls (one per chunk, rate-limited). This cannot happen in the request cycle. It needs a durable, retriable job queue.
+
+| | BullMQ | Pg-boss | SQS | In-process queue |
+|---|---|---|---|---|
+| **Persistence** | Redis (AOF) | PostgreSQL | AWS-managed | Memory only |
+| **Retries + backoff** | Built-in, per-job config | Built-in | Limited | Manual |
+| **Real-time progress** | Redis pub/sub built-in | Polling only | No | Easy but no durability |
+| **Concurrency control** | `concurrency` option + `p-limit` | Limited | Visibility timeout | Manual |
+| **Infra already needed** | Redis (also used for cache) | Postgres (already present) | External dependency | None |
+| **TypeScript SDK** | First-class | Good | AWS SDK | N/A |
+
+**The deciding factors:**
+
+- **Redis was already required** for session caching and SSE pub/sub. Adding BullMQ meant zero extra infrastructure.
+- **Real-time progress via pub/sub** — BullMQ sits on Redis, so publishing chunk-level progress events (`{ event: "chunk", index: 3, total: 42 }`) to the same Redis connection is trivial. With pg-boss or SQS this would need a separate WebSocket or polling layer.
+- **Exponential backoff on 429s** — the NVIDIA embedding API rate-limits aggressively. BullMQ's built-in retry with configurable backoff handles this cleanly without custom retry loops in application code.
+- **Job visibility** — failed jobs stay in Redis with their full error and stack trace, inspectable via Bull Board or `redis-cli`. With an in-process queue, a worker crash loses everything.
+
+**Trade-off accepted:** Redis is not a traditional durable message broker. If Redis loses data before a job is acknowledged (AOF not enabled, OOM eviction), the job is lost. For DocSense's use case — a user can always re-upload — this is acceptable. If guaranteed delivery were required, pg-boss over the existing PostgreSQL would be the next choice.
+
+### Why pgvector over a dedicated vector database?
+
+Pinecone, Weaviate, and Qdrant offer richer ANN index options, but they add an external service dependency. pgvector keeps vectors in the same PostgreSQL instance as the rest of the data, meaning joins between documents, chunks, and users are a single query with no network hop. At the scale DocSense targets (millions of chunks per user, not billions), pgvector's HNSW index is fast enough. The trade-off: if query latency becomes a bottleneck at scale, migrating to a dedicated vector store is a clean cut — the `search.repository.ts` layer abstracts all vector queries.
+
+### Why Drizzle ORM over Prisma?
+
+Drizzle generates SQL you can read and audit. There is no query engine binary, no Rust sidecar, and no `generate` step required at runtime. The schema is TypeScript — the same language as the rest of the codebase — so refactoring a column name is a type error, not a runtime surprise. Prisma's DX is excellent for simple CRUD, but its abstractions around raw SQL and pgvector operations required too many workarounds for DocSense's embedding queries.
+
+---
+
 ## Development Commands
 
 ```bash
