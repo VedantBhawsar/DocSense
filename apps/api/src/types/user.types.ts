@@ -25,6 +25,7 @@ export interface LoginBody {
 export interface AuthResponse {
   user: { id: string; name: string; email: string }
   accessToken: string
+  refreshToken: string
 }
 
 declare global {

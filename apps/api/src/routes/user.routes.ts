@@ -8,6 +8,7 @@ const router = Router()
 
 router.post("/signup", validate(signupSchema), userController.signup)
 router.post("/login", validate(loginSchema), userController.login)
+router.post("/refresh", userController.refresh)
 router.get("/me", authenticate, userController.me)
 router.post("/oauth", userController.oauthSignin)
 

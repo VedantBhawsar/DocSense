@@ -52,4 +52,18 @@ export const userController = {
       next(err)
     }
   },
+
+  async refresh(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { refreshToken } = req.body as { refreshToken?: string }
+      if (!refreshToken) {
+        res.status(400).json({ error: "refreshToken is required" })
+        return
+      }
+      const tokens = await userService.refreshTokens(refreshToken)
+      res.json(tokens)
+    } catch (err) {
+      next(err)
+    }
+  },
 }

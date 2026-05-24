@@ -1,11 +1,15 @@
 import argon2 from "argon2"
 import jwt from "jsonwebtoken"
 import { userRepository } from "../repositories/user.repository.js"
-import { JWT_SECRET, JWT_EXPIRES_IN } from "../config/env.js"
+import { JWT_SECRET, JWT_EXPIRES_IN, JWT_REFRESH_SECRET, JWT_REFRESH_EXPIRES_IN } from "../config/env.js"
 import type { SignupBody, LoginBody, AuthResponse } from "../types/user.types.js"
 
 function signToken(userId: string, email: string): string {
   return jwt.sign({ sub: userId, email }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions)
+}
+
+function signRefreshToken(userId: string, email: string): string {
+  return jwt.sign({ sub: userId, email }, JWT_REFRESH_SECRET, { expiresIn: JWT_REFRESH_EXPIRES_IN } as jwt.SignOptions)
 }
 
 function makeError(message: string, status: number) {
@@ -22,8 +26,9 @@ export const userService = {
     const passwordHash = await argon2.hash(body.password)
     const user = await userRepository.create({ name: body.name, email: body.email, passwordHash })
     const accessToken = signToken(user.id, user.email)
+    const refreshToken = signRefreshToken(user.id, user.email)
 
-    return { user: { id: user.id, name: user.name, email: user.email }, accessToken }
+    return { user: { id: user.id, name: user.name, email: user.email }, accessToken, refreshToken }
   },
 
   async login(body: LoginBody): Promise<AuthResponse> {
@@ -34,7 +39,8 @@ export const userService = {
     if (!valid) throw makeError("Invalid credentials", 401)
 
     const accessToken = signToken(user.id, user.email)
-    return { user: { id: user.id, name: user.name, email: user.email }, accessToken }
+    const refreshToken = signRefreshToken(user.id, user.email)
+    return { user: { id: user.id, name: user.name, email: user.email }, accessToken, refreshToken }
   },
 
   async oauthUpsert(data: { email: string; name: string }): Promise<AuthResponse> {
@@ -43,6 +49,24 @@ export const userService = {
       user = await userRepository.create({ name: data.name, email: data.email, passwordHash: null })
     }
     const accessToken = signToken(user.id, user.email)
-    return { user: { id: user.id, name: user.name, email: user.email }, accessToken }
+    const refreshToken = signRefreshToken(user.id, user.email)
+    return { user: { id: user.id, name: user.name, email: user.email }, accessToken, refreshToken }
+  },
+
+  async refreshTokens(token: string): Promise<{ accessToken: string; refreshToken: string }> {
+    let payload: { sub: string; email: string }
+    try {
+      payload = jwt.verify(token, JWT_REFRESH_SECRET) as { sub: string; email: string }
+    } catch {
+      throw makeError("Invalid or expired refresh token", 401)
+    }
+
+    const user = await userRepository.findById(payload.sub)
+    if (!user) throw makeError("User not found", 401)
+
+    return {
+      accessToken: signToken(user.id, user.email),
+      refreshToken: signRefreshToken(user.id, user.email),
+    }
   },
 }
