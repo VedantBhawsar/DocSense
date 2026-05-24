@@ -1,29 +1,44 @@
-import OpenAI from "openai";
+import { ChatOpenAI } from "@langchain/openai";
+import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
+import { HumanMessage, AIMessage, SystemMessage } from "@langchain/core/messages";
 
-const client = new OpenAI({
+const llm = new ChatOpenAI({
   apiKey: process.env["OPENAI_API_KEY_CHAT"],
-  baseURL: "https://integrate.api.nvidia.com/v1"
+  configuration: { baseURL: "https://integrate.api.nvidia.com/v1" },
+  model: "minimaxai/minimax-m2.7",
+  maxTokens: 1500,
+  streaming: true,
 });
+
+const prompt = ChatPromptTemplate.fromMessages([
+  ["system", "{systemPrompt}"],
+  new MessagesPlaceholder("history"),
+  ["human", "{input}"],
+]);
 
 export interface LLMMessage {
   role: "user" | "assistant";
   content: string;
 }
 
-export async function generateAnswer(
+export async function* streamAnswer(
   systemPrompt: string,
-  history: LLMMessage[]
-): Promise<string> {
-  const response = await client.chat.completions.create({
-    model: "minimaxai/minimax-m2.7",
-    messages: [
-      { role: "system", content: systemPrompt },
-      ...history,
-    ],
-    max_tokens: 1024,
+  history: LLMMessage[],
+  userInput: string
+): AsyncGenerator<string> {
+  const langchainHistory = history.slice(0, -1).map((m) =>
+    m.role === "user" ? new HumanMessage(m.content) : new AIMessage(m.content)
+  );
+
+  const chain = prompt.pipe(llm);
+  const stream = await chain.stream({
+    systemPrompt,
+    history: langchainHistory,
+    input: userInput,
   });
 
-  const content = response.choices[0]?.message?.content;
-  if (!content) throw new Error("Empty response from LLM");
-  return content;
+  for await (const chunk of stream) {
+    const text = typeof chunk.content === "string" ? chunk.content : "";
+    if (text) yield text;
+  }
 }

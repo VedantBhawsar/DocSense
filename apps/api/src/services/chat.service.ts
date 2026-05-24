@@ -7,12 +7,11 @@ import {
   findSimilarChunks,
 } from "../repositories/chat.repository.js";
 import { embedQuery } from "./embedding.service.js";
-import { generateAnswer, type LLMMessage } from "../lib/llm.js";
+import { streamAnswer, type LLMMessage } from "../lib/llm.js";
 
 export async function getOrCreateChat(userId: string, documentId: string) {
   const existing = await getChatByDocumentAndUser(documentId, userId);
   if (existing) return existing;
-
   return createChat({ userId, documentId, title: null });
 }
 
@@ -20,39 +19,71 @@ export async function loadChatMessages(chatId: string, userId: string) {
   const chat = await getChatById(chatId);
   if (!chat) throw Object.assign(new Error("Chat not found"), { status: 404 });
   if (chat.userId !== userId) throw Object.assign(new Error("Forbidden"), { status: 403 });
-
   return getMessagesByChatId(chatId);
 }
 
-export async function sendMessage(chatId: string, userId: string, userText: string) {
-  const chat = await getChatById(chatId);
+export type StreamEvent =
+  | { type: "token"; value: string }
+  | { type: "suggestions"; value: string[] };
+
+export async function* sendMessageStream(
+  chatId: string,
+  userId: string,
+  userText: string
+): AsyncGenerator<StreamEvent> {
+  const t0 = Date.now();
+
+  const [chat, queryEmbedding] = await Promise.all([
+    getChatById(chatId),
+    embedQuery(userText),
+  ]);
+  console.log(`[chat] getChatById + embedQuery: ${Date.now() - t0}ms`);
+
   if (!chat) throw Object.assign(new Error("Chat not found"), { status: 404 });
   if (chat.userId !== userId) throw Object.assign(new Error("Forbidden"), { status: 403 });
 
-  const userMsg = await addMessage({ chatId, role: "user", content: userText });
+  const t1 = Date.now();
+  const [, history] = await Promise.all([
+    addMessage({ chatId, role: "user", content: userText }),
+    getMessagesByChatId(chatId),
+  ]);
+  console.log(`[chat] addMessage + getHistory: ${Date.now() - t1}ms`);
 
-  const queryEmbedding = await embedQuery(userText);
-  const similarChunks = await findSimilarChunks(chat.documentId, queryEmbedding, 5);
+  const t2 = Date.now();
+  const similarChunks = await findSimilarChunks(chat.documentId, queryEmbedding, 10);
+  console.log(`[chat] findSimilarChunks: ${Date.now() - t2}ms (${similarChunks.length} chunks)`);
 
-  const context = similarChunks
-    .map((c, i) => `[${i + 1}] ${c.content}`)
-    .join("\n\n");
+  const context = similarChunks.map((c, i) => {
+    const loc = c.metadata?.loc as { pageNumber?: number } | undefined;
+    const pageLabel = loc?.pageNumber != null ? ` (Page ${loc.pageNumber})` : "";
+    return `[Excerpt ${i + 1}${pageLabel}]\n${c.content}`;
+  }).join("\n\n");
+
+
+  console.log("context", context)
 
   const systemPrompt = `You are a helpful assistant answering questions about a document.
-Use ONLY the context excerpts below to answer. If the answer is not in the context, say so.
-
 CONTEXT:
 ${context}`;
 
-  const history = await getMessagesByChatId(chatId);
-  const llmHistory: LLMMessage[] = history.map((m) => ({
+  const llmHistory: LLMMessage[] = history.slice(-10).map((m) => ({
     role: m.role as "user" | "assistant",
     content: m.content,
   }));
 
-  const answer = await generateAnswer(systemPrompt, llmHistory);
+  const t3 = Date.now();
+  let firstToken = true;
+  let fullResponse = "";
+  for await (const token of streamAnswer(systemPrompt, llmHistory, userText)) {
+    if (firstToken) {
+      console.log(`[chat] time to first token: ${Date.now() - t3}ms`);
+      firstToken = false;
+    }
+    fullResponse += token;
+    yield { type: "token", value: token };
+  }
+  console.log(`[chat] LLM stream complete: ${Date.now() - t3}ms (${fullResponse.length} chars)`);
+  console.log(`[chat] total: ${Date.now() - t0}ms`);
 
-  const assistantMsg = await addMessage({ chatId, role: "assistant", content: answer });
-
-  return { userMessage: userMsg, assistantMessage: assistantMsg };
+  await addMessage({ chatId, role: "assistant", content: fullResponse });
 }

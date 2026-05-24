@@ -36,14 +36,15 @@ export async function addMessage(data: NewMessage) {
 export async function findSimilarChunks(documentId: string, embedding: number[], topK = 5) {
   const vectorLiteral = `[${embedding.join(",")}]`;
 
-  const rows = await db.execute<{ id: string; content: string; similarity: number }>(
+  const rows = await db.execute<{ id: string; content: string; metadata: Record<string, unknown> | null; similarity: number }>(
     sql`
-      SELECT id, content,
-             1 - (embedding <=> ${vectorLiteral}::vector) AS similarity
-      FROM chunks
-      WHERE document_id = ${documentId}::uuid
-      ORDER BY embedding <=> ${vectorLiteral}::vector
-      LIMIT ${topK}
+      WITH ranked AS (
+        SELECT id, content, metadata,
+               1 - (embedding <=> ${vectorLiteral}::vector) AS similarity
+        FROM chunks
+        WHERE document_id = ${documentId}::uuid
+      )
+      SELECT * FROM ranked ORDER BY similarity DESC LIMIT ${topK}
     `
   );
   return rows.rows;

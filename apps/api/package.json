@@ -27,6 +27,8 @@
   "dependencies": {
     "@docsense/db": "workspace:*",
     "@docsense/queue": "workspace:*",
+    "@langchain/core": "^1.1.48",
+    "@langchain/openai": "^1.4.7",
     "@types/express": "^5.0.6",
     "argon2": "^0.44.0",
     "cors": "^2.8.6",
