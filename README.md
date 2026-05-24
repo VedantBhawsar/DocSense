@@ -48,7 +48,7 @@ DocSense is a full-stack RAG (Retrieval-Augmented Generation) platform that lets
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/your-username/DocSense.git
+git clone [https://github.com/your-username/DocSense](https://github.com/VedantBhawsar/DocSense)
 cd DocSense
 pnpm install
 ```
