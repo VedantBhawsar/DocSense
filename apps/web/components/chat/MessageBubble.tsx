@@ -1,5 +1,9 @@
+"use client"
+
+import { useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { Copy, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export type Message = {
@@ -23,9 +27,16 @@ interface MessageBubbleProps {
 
 export function MessageBubble({ message: msg, streaming, onSuggestionClick }: MessageBubbleProps) {
   const isUser = msg.role === "user"
+  const [copied, setCopied] = useState(false)
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(msg.content)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   return (
-    <div className={cn("flex flex-col gap-1", isUser ? "items-end" : "items-start")}>
+    <div className={cn("group flex flex-col gap-1", isUser ? "items-end" : "items-start")}>
       <div
         className={cn(
           "max-w-[80%] px-4 py-2.5 text-sm leading-relaxed",
@@ -46,9 +57,18 @@ export function MessageBubble({ message: msg, streaming, onSuggestionClick }: Me
         )}
       </div>
 
-      <span className="px-1 text-xs text-muted-foreground">
-        {formatTime(msg.createdAt)}
-      </span>
+      <div className={cn("flex items-center gap-2 px-1", isUser ? "flex-row-reverse" : "flex-row")}>
+        <span className="text-xs text-muted-foreground">{formatTime(msg.createdAt)}</span>
+        {!streaming && (
+          <button
+            onClick={handleCopy}
+            aria-label="Copy message"
+            className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 focus:opacity-100"
+          >
+            {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+          </button>
+        )}
+      </div>
 
       {!isUser && msg.suggestions && msg.suggestions.length > 0 && (
         <div className="flex flex-col gap-1.5 max-w-[80%]">
