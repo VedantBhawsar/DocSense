@@ -4,6 +4,7 @@ import {
   listDocuments,
   removeDocument,
   renameDocument,
+  retryDocument,
 } from "../services/document.service.js";
 
 export async function uploadDocumentHandler(
@@ -58,6 +59,26 @@ export async function renameDocumentHandler(
     if (err instanceof Error && err.message === "Forbidden") {
       res.status(403).json({ error: "Forbidden" });
       return;
+    }
+    next(err);
+  }
+}
+
+export async function retryDocumentHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { id } = req.params as { id: string };
+    const doc = await retryDocument(req.user!.id, id);
+    res.json({ document: doc });
+  } catch (err) {
+    if (err instanceof Error) {
+      const status = (err as any).status;
+      if (status === 404) { res.status(404).json({ error: "Document not found" }); return; }
+      if (status === 403) { res.status(403).json({ error: "Forbidden" }); return; }
+      if (status === 400) { res.status(400).json({ error: err.message }); return; }
     }
     next(err);
   }

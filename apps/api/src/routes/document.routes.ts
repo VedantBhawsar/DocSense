@@ -6,6 +6,7 @@ import {
   listDocumentsHandler,
   deleteDocumentHandler,
   renameDocumentHandler,
+  retryDocumentHandler,
 } from "../controllers/document.controller.js";
 import { documentProgressHandler } from "../controllers/progress.controller.js";
 
@@ -17,6 +18,7 @@ router.post("/", upload.single("file"), uploadDocumentHandler);
 router.get("/", listDocumentsHandler);
 router.get("/:id/progress", documentProgressHandler);
 router.patch("/:id", renameDocumentHandler);
+router.post("/:id/retry", retryDocumentHandler);
 router.delete("/:id", deleteDocumentHandler);
 
 export { router as documentRouter };
