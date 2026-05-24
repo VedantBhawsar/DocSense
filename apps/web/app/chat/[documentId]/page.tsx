@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ArrowLeft, AlertCircle, RotateCcw } from "lucide-react";
+import { ArrowLeft, AlertCircle, RotateCcw, Download } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -168,6 +168,24 @@ export default function ChatPage() {
     }
   }
 
+  async function handleExport() {
+    if (!chatId || !token) return;
+    const res = await fetch(`${API_URL}/api/v1/chats/${chatId}/export`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const disposition = res.headers.get("Content-Disposition") ?? "";
+    const filenameMatch = disposition.match(/filename="([^"]+)"/);
+    const filename = filenameMatch?.[1] ?? "chat-export.md";
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   if (!session) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
@@ -177,22 +195,36 @@ export default function ChatPage() {
   }
 
   const headerContent = (
-    <div className="flex min-w-0 items-center gap-3">
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => router.push("/")}
-        aria-label="Back to documents"
-        className="shrink-0 transition-colors duration-200"
-      >
-        <ArrowLeft className="h-4 w-4" />
-      </Button>
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-foreground">
-          {docName || "Document"}
-        </p>
-        <p className="text-xs text-muted-foreground">Chat with document</p>
+    <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => router.push("/")}
+          aria-label="Back to documents"
+          className="shrink-0 transition-colors duration-200"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-foreground">
+            {docName || "Document"}
+          </p>
+          <p className="text-xs text-muted-foreground">Chat with document</p>
+        </div>
       </div>
+      {messages.length > 0 && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExport}
+          className="shrink-0 gap-1.5 transition-colors duration-200"
+          aria-label="Export chat as markdown"
+        >
+          <Download className="h-3.5 w-3.5" />
+          Export
+        </Button>
+      )}
     </div>
   );
 

@@ -87,3 +87,24 @@ ${context}`;
 
   await addMessage({ chatId, role: "assistant", content: fullResponse });
 }
+
+export async function exportChatMarkdown(chatId: string, userId: string) {
+  const chat = await getChatById(chatId);
+  if (!chat) throw Object.assign(new Error("Chat not found"), { status: 404 });
+  if (chat.userId !== userId) throw Object.assign(new Error("Forbidden"), { status: 403 });
+
+  const msgs = await getMessagesByChatId(chatId);
+  const date = new Date().toISOString().slice(0, 10);
+
+  const lines: string[] = [`# Chat Export — ${date}`, ""];
+  for (const m of msgs) {
+    const label = m.role === "user" ? "**You**" : "**Assistant**";
+    const time = new Date(m.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    lines.push(`${label} · ${time}`, "", m.content, "");
+  }
+
+  return {
+    markdown: lines.join("\n"),
+    filename: `chat-${chatId.slice(0, 8)}-${date}.md`,
+  };
+}

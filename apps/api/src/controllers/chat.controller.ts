@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { getOrCreateChat, loadChatMessages, sendMessageStream } from "../services/chat.service.js";
+import { getOrCreateChat, loadChatMessages, sendMessageStream, exportChatMarkdown } from "../services/chat.service.js";
 
 export async function getOrCreateChatHandler(req: Request, res: Response) {
   const { documentId } = req.body as { documentId?: string };
@@ -15,6 +15,17 @@ export async function getOrCreateChatHandler(req: Request, res: Response) {
 export async function getMessagesHandler(req: Request, res: Response) {
   const messages = await loadChatMessages(req.params["chatId"]! as string, req.user!.id);
   res.json({ messages });
+}
+
+export async function exportChatHandler(req: Request, res: Response) {
+  try {
+    const { markdown, filename } = await exportChatMarkdown(req.params["chatId"]! as string, req.user!.id);
+    res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(markdown);
+  } catch (err: any) {
+    res.status(err?.status ?? 500).json({ error: err.message });
+  }
 }
 
 export async function sendMessageHandler(req: Request, res: Response) {
