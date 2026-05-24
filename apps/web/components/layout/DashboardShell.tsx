@@ -1,8 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { Menu } from "lucide-react"
+import { Menu, Search } from "lucide-react"
 import { Sidebar } from "./Sidebar"
+import { SearchModal } from "@/components/search/SearchModal"
 import { cn } from "@/lib/utils"
 
 export function DashboardShell({
@@ -13,6 +14,7 @@ export function DashboardShell({
   headerContent?: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -50,8 +52,18 @@ export function DashboardShell({
           >
             <Menu className="h-5 w-5" />
           </button>
-          {headerContent}
+          <div className="flex flex-1 items-center">
+            {headerContent}
+          </div>
+          <button
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors duration-200"
+            onClick={() => setSearchOpen(true)}
+            aria-label="Search documents"
+          >
+            <Search className="h-5 w-5" />
+          </button>
         </header>
+        <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
 
         <main className="flex-1 overflow-hidden">
           {children}
