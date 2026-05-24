@@ -8,6 +8,7 @@ const llm = new ChatOpenAI({
   model: "minimaxai/minimax-m2.7",
   maxTokens: 1500,
   streaming: true,
+  temperature: 0.3
 });
 
 const prompt = ChatPromptTemplate.fromMessages([

@@ -1,6 +1,6 @@
 {
-  "id": "2260c431-6ae9-4706-8a05-2e5d6f3121e5",
-  "prevId": "55a958fc-c2a9-40d8-9f5a-010ec2ff71b6",
+  "id": "e69db3d3-fd5e-4460-af91-7dbf3f27e25f",
+  "prevId": "2260c431-6ae9-4706-8a05-2e5d6f3121e5",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -206,6 +206,22 @@
           "isUnique": false,
           "concurrently": false,
           "method": "btree",
+          "with": {}
+        },
+        "chunks_embedding_hnsw_idx": {
+          "name": "chunks_embedding_hnsw_idx",
+          "columns": [
+            {
+              "expression": "embedding",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "vector_cosine_ops"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "hnsw",
           "with": {}
         }
       },
