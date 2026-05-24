@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express"
 import { userService } from "../services/user.service.js"
 import { userRepository } from "../repositories/user.repository.js"
+import { emailService } from "../lib/email.service.js"
 import { INTERNAL_SECRET } from "../config/env.js"
 import type { SignupBody, LoginBody } from "../types/user.types.js"
 
@@ -62,6 +63,26 @@ export const userController = {
       }
       const tokens = await userService.refreshTokens(refreshToken)
       res.json(tokens)
+    } catch (err) {
+      next(err)
+    }
+  },
+
+  async forgotPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email } = req.body as { email: string }
+      await emailService.sendPasswordResetEmail(email)
+      res.json({ message: "If an account with that email exists, a password reset link has been sent." })
+    } catch (err) {
+      next(err)
+    }
+  },
+
+  async resetPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { token, password } = req.body as { token: string; password: string }
+      await emailService.resetPassword(token, password)
+      res.json({ message: "Password has been reset successfully." })
     } catch (err) {
       next(err)
     }

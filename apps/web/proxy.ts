@@ -20,7 +20,7 @@ export default withAuth(
         const { pathname } = req.nextUrl
         const isAuthPage =
           pathname.startsWith("/login") ||
-          pathname.startsWith("/signup")
+          pathname.startsWith("/signup") || pathname.startsWith("/reset-password") || pathname.startsWith("/forgot-password")
         const isPublicPage = pathname.startsWith("/share")
 
         if (isAuthPage || isPublicPage) return true

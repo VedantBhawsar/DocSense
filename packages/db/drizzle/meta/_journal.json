@@ -50,6 +50,13 @@
       "when": 1779614132393,
       "tag": "0006_modern_tenebrous",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1779623204853,
+      "tag": "0007_magical_scalphunter",
+      "breakpoints": true
     }
   ]
 }

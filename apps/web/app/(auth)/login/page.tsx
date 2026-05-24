@@ -112,6 +112,12 @@ export default function LoginPage() {
                 Sign up
               </Link>
             </p>
+            <p className="text-center text-sm text-muted-foreground">
+              Forgot your password?{" "}
+              <Link href="/forgot-password" className="text-primary font-medium hover:underline">
+                Reset it
+              </Link>
+            </p>
           </CardContent>
         </Card>
       </div>
