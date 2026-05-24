@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { FileText, MessageSquare, Trash2, Loader2, Pencil } from "lucide-react"
+import { FileText, MessageSquare, Trash2, Loader2, Pencil, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -19,6 +19,7 @@ interface Document {
   mimeType: string
   status: string
   createdAt: string
+  messageCount?: number
 }
 
 interface DocumentCardProps {
@@ -27,6 +28,7 @@ interface DocumentCardProps {
   onChat: () => void
   onDelete: () => void
   onRename?: (id: string, newName: string) => void
+  onRetry?: (id: string) => void
 }
 
 function formatDate(iso: string) {
@@ -37,7 +39,7 @@ function formatDate(iso: string) {
   })
 }
 
-export function DocumentCard({ document: doc, progress, onChat, onDelete, onRename }: DocumentCardProps) {
+export function DocumentCard({ document: doc, progress, onChat, onDelete, onRename, onRetry }: DocumentCardProps) {
   const isChunking = progress?.stage === "chunk"
   const pct = isChunking ? Math.round((progress.index / progress.total) * 100) : 0
 
@@ -110,6 +112,15 @@ export function DocumentCard({ document: doc, progress, onChat, onDelete, onRena
             </span>
             <span className="text-xs text-muted-foreground">·</span>
             <span className="text-xs text-muted-foreground">{formatDate(doc.createdAt)}</span>
+            {doc.status === "ready" && doc.messageCount != null && doc.messageCount > 0 && (
+              <>
+                <span className="text-xs text-muted-foreground">·</span>
+                <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                  <MessageSquare className="h-3 w-3" />
+                  {doc.messageCount} {doc.messageCount === 1 ? "message" : "messages"}
+                </span>
+              </>
+            )}
             <span className="text-xs text-muted-foreground">·</span>
             <StatusBadge status={doc.status} progress={progress} />
           </div>
@@ -152,7 +163,33 @@ export function DocumentCard({ document: doc, progress, onChat, onDelete, onRena
       )}
 
       {progress?.stage === "failed" && (
-        <p className="pl-12 text-xs text-destructive">{progress.error}</p>
+        <div className="flex items-center gap-2 pl-12">
+          <p className="text-xs text-destructive">{progress.error}</p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onRetry?.(doc.id)}
+            className="h-6 gap-1 px-2 text-xs"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {doc.status === "failed" && !progress && (
+        <div className="flex items-center gap-2 pl-12">
+          <p className="text-xs text-destructive">Processing failed</p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onRetry?.(doc.id)}
+            className="h-6 gap-1 px-2 text-xs"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Retry
+          </Button>
+        </div>
       )}
     </div>
   )

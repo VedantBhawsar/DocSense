@@ -15,6 +15,7 @@ type Document = {
   mimeType: string;
   status: string;
   createdAt: string;
+  messageCount?: number;
 };
 
 type UploadState = "idle" | "uploading" | "success" | "error";
@@ -157,6 +158,26 @@ export default function Home() {
     }
   }
 
+  async function handleRetry(id: string) {
+    const res = await fetch(`${API_URL}/api/v1/documents/${id}/retry`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session?.accessToken}` },
+    });
+    if (res.ok) {
+      setDocuments((prev) =>
+        prev.map((d) => (d.id === id ? { ...d, status: "pending" } : d))
+      );
+      setProgress((p) => {
+        const next = { ...p };
+        delete next[id];
+        return next;
+      });
+      esRefs.current[id]?.close();
+      delete esRefs.current[id];
+      subscribeToProgress(id);
+    }
+  }
+
   async function handleDelete(id: string) {
     esRefs.current[id]?.close();
     delete esRefs.current[id];
@@ -251,6 +272,7 @@ export default function Home() {
                   onChat={() => router.push(`/chat/${doc.id}`)}
                   onDelete={() => handleDelete(doc.id)}
                   onRename={handleRename}
+                  onRetry={handleRetry}
                 />
               ))}
             </div>
