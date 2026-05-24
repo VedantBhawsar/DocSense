@@ -5,7 +5,7 @@ import { HumanMessage, AIMessage, SystemMessage } from "@langchain/core/messages
 const llm = new ChatOpenAI({
   apiKey: process.env["OPENAI_API_KEY_CHAT"],
   configuration: { baseURL: "https://integrate.api.nvidia.com/v1" },
-  model: "minimaxai/minimax-m2.7",
+  model: "moonshotai/kimi-k2.6",
   maxTokens: 1500,
   streaming: true,
   temperature: 0.3
