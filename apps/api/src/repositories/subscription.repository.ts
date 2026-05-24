@@ -41,12 +41,18 @@ export async function getUsage(userId: string, month: string) {
 }
 
 export async function incrementUsage(userId: string, month: string, field: "documentCount" | "messageCount") {
-  const col = field === "documentCount" ? usage.documentCount : usage.messageCount;
+  const set =
+    field === "documentCount"
+      ? { documentCount: sql`${usage.documentCount} + 1` }
+      : { messageCount: sql`${usage.messageCount} + 1` };
+
   await db
     .insert(usage)
-    .values({ userId, month, documentCount: 0, messageCount: 0 })
-    .onConflictDoUpdate({
-      target: [usage.userId, usage.month],
-      set: { [field === "documentCount" ? "document_count" : "message_count"]: sql`${col} + 1` },
-    });
+    .values({
+      userId,
+      month,
+      documentCount: field === "documentCount" ? 1 : 0,
+      messageCount: field === "messageCount" ? 1 : 0,
+    })
+    .onConflictDoUpdate({ target: [usage.userId, usage.month], set });
 }
