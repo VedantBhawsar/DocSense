@@ -1,6 +1,7 @@
 "use client"
 
 import { SessionProvider, useSession, signOut } from "next-auth/react"
+import { ThemeProvider } from "next-themes"
 import { useEffect } from "react"
 
 function SessionGuard({ children }: { children: React.ReactNode }) {
@@ -17,8 +18,10 @@ function SessionGuard({ children }: { children: React.ReactNode }) {
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider>
-      <SessionGuard>{children}</SessionGuard>
-    </SessionProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <SessionProvider>
+        <SessionGuard>{children}</SessionGuard>
+      </SessionProvider>
+    </ThemeProvider>
   )
 }

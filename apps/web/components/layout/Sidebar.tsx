@@ -3,7 +3,8 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
-import { FileText, Home, LogOut } from "lucide-react"
+import { useTheme } from "next-themes"
+import { FileText, Home, LogOut, Sun, Moon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
@@ -14,6 +15,7 @@ const navLinks = [
 export function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname()
   const { data: session } = useSession()
+  const { resolvedTheme, setTheme } = useTheme()
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
@@ -59,16 +61,27 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
             </div>
           </div>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground"
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          aria-label="Sign out"
-        >
-          <LogOut className="h-4 w-4" />
-          Sign out
-        </Button>
+        <div className="flex items-center gap-1 mb-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex-1 justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            aria-label="Sign out"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="shrink-0 text-sidebar-foreground/70 hover:text-sidebar-foreground"
+            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+            aria-label="Toggle theme"
+          >
+            {resolvedTheme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
+        </div>
       </div>
     </div>
   )
