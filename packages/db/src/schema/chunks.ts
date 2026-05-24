@@ -1,18 +1,5 @@
-import { pgTable, uuid, text, integer, timestamp, index, customType } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, timestamp, index, jsonb, vector } from "drizzle-orm/pg-core";
 import { documents } from "./documents.js";
-
-const vector = customType<{ data: number[]; driverData: string }>({
-  dataType(config) {
-    const dim = (config as { dimensions?: number } | undefined)?.dimensions ?? 1536;
-    return `vector(${dim})`;
-  },
-  toDriver(value: number[]) {
-    return `[${value.join(",")}]`;
-  },
-  fromDriver(value: string) {
-    return value.slice(1, -1).split(",").map(Number);
-  },
-});
 
 export const chunks = pgTable(
   "chunks",
@@ -24,10 +11,12 @@ export const chunks = pgTable(
     content: text("content").notNull(),
     embedding: vector("embedding", { dimensions: 4096 }).notNull(),
     chunkIndex: integer("chunk_index").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [
     index("chunks_document_id_idx").on(table.documentId),
+    index("chunks_embedding_hnsw_idx").using("hnsw", table.embedding.op("vector_cosine_ops")),
   ]
 );
 

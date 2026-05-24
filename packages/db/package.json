@@ -15,8 +15,9 @@
   },
   "dependencies": {
     "dotenv": "^17.4.2",
-    "drizzle-orm": "^0.44.1",
-    "pg": "^8.16.0"
+    "drizzle-orm": "^0.44.7",
+    "pg": "^8.16.0",
+    "pgvector": "^0.2.1"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
