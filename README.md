@@ -1,159 +1,241 @@
-# Turborepo starter
+# DocSense
 
-This Turborepo starter is maintained by the Turborepo core team.
+**Upload PDFs. Ask questions. Get answers.**
 
-## Using this example
+DocSense is a full-stack RAG (Retrieval-Augmented Generation) platform that lets you upload PDF documents and chat with them using semantic search and LLM-powered responses. Built as a production-ready monorepo with async document processing, vector embeddings, and a real-time progress pipeline.
 
-Run the following command:
+---
 
-```sh
-npx create-turbo@latest
+## Key Features
+
+- **PDF ingestion** — upload PDFs and get them chunked, embedded, and indexed automatically
+- **Semantic search** — pgvector-powered similarity search across all your documents
+- **AI chat** — ask questions against your document library with streamed LLM responses
+- **Async processing** — BullMQ worker handles embedding jobs off the request path with real-time progress events
+- **Shareable chats** — share conversation links with others
+- **Auth** — JWT + refresh tokens, Google OAuth, email OTP, and password reset
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 16, React 19, Tailwind CSS v4, shadcn/ui |
+| API | Express 5, Bun runtime, Zod validation |
+| Worker | BullMQ 5, LangChain, OpenAI SDK |
+| Database | PostgreSQL 16 + pgvector (via Drizzle ORM) |
+| Queue / Cache | Redis 7 (ioredis) |
+| Embeddings | NVIDIA NV-Embed-v1 via NVIDIA API |
+| Monorepo | Turborepo 2, pnpm workspaces |
+| Language | TypeScript 5.9 throughout |
+
+**Architecture:** The API accepts uploads and enqueues a BullMQ job. The worker picks up jobs, splits PDFs into token-bounded chunks (800 tokens, 120 overlap), generates vector embeddings, and stores them in PostgreSQL. Progress events are published over Redis pub/sub and streamed to the browser via SSE. Queries hit a pgvector cosine-similarity index, and matching chunks are injected into the LLM context.
+
+---
+
+## Prerequisites
+
+- **Node.js** >= 18 (or Bun for running apps directly)
+- **pnpm** >= 11.2.2 — `npm i -g pnpm`
+- **Docker + Docker Compose** — for PostgreSQL and Redis
+- An **OpenAI-compatible API key** (used for NVIDIA NV-Embed-v1 embeddings and chat completions)
+
+---
+
+## Getting Started
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/your-username/DocSense.git
+cd DocSense
+pnpm install
 ```
 
-## What's inside?
+### 2. Start infrastructure
 
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+```bash
+docker compose up -d
 ```
 
-Without global `turbo`, use your package manager:
+This starts:
+- PostgreSQL 16 with pgvector at `localhost:5432`
+- Redis 7 at `localhost:6379`
 
-```sh
-cd my-turborepo
-npx turbo build
-bun dlx turbo build
-bun exec turbo build
+### 3. Configure environment variables
+
+Copy the examples and fill in your values:
+
+```bash
+cp apps/api/.env.example apps/api/.env
+cp apps/worker/.env.example apps/worker/.env
+cp apps/web/.env.example apps/web/.env
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+See [Environment Variables](#environment-variables) below for what each key does.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+### 4. Run database migrations
 
-```sh
-turbo build --filter=docs
+```bash
+pnpm --filter api db:migrate
 ```
 
-Without global `turbo`:
+### 5. Start development
 
-```sh
-npx turbo build --filter=docs
-bun exec turbo build --filter=docs
-bun exec turbo build --filter=docs
+```bash
+pnpm dev
 ```
 
-### Develop
+This starts all apps in parallel via Turborepo:
+- **Web** → http://localhost:3000
+- **API** → http://localhost:3001
+- **Worker** → background process, listens to Redis queue
 
-To develop all apps and packages, run the following command:
+---
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+## Environment Variables
 
-```sh
-cd my-turborepo
-turbo dev
+### `apps/api/.env`
+
+```env
+PORT=3001
+DATABASE_URL=postgresql://docsense:docsense123@localhost:5432/docsense
+
+# JWT
+JWT_SECRET=change-me-in-production
+JWT_EXPIRES_IN=15m
+JWT_REFRESH_SECRET=change-me-in-production
+JWT_REFRESH_EXPIRES_IN=7d
+
+# Internal service-to-service auth
+INTERNAL_SECRET=change-me-in-production
+
+# Email (for OTP / password reset)
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=you@example.com
+SMTP_PASS=your-smtp-password
+SMTP_FROM=noreply@docsense.app
+
+APP_URL=http://localhost:3000
 ```
 
-Without global `turbo`, use your package manager:
+### `apps/worker/.env`
 
-```sh
-cd my-turborepo
-npx turbo dev
-bun exec turbo dev
-bun exec turbo dev
+```env
+DATABASE_URL=postgresql://docsense:docsense123@localhost:5432/docsense
+REDIS_URL=redis://localhost:6379
+
+# NVIDIA NV-Embed-v1 via integrate.api.nvidia.com
+OPENAI_API_KEY=your-nvidia-api-key
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+### `apps/web/.env`
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=change-me-in-production
 
-```sh
-turbo dev --filter=web
+# Google OAuth (optional)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
 ```
 
-Without global `turbo`:
+---
 
-```sh
-npx turbo dev --filter=web
-bun exec turbo dev --filter=web
-bun exec turbo dev --filter=web
+## Usage
+
+### Upload a document
+
+```bash
+curl -X POST http://localhost:3001/api/documents \
+  -H "Authorization: Bearer <token>" \
+  -F "file=@report.pdf"
 ```
 
-### Remote Caching
+The API responds immediately with a document ID and enqueues the processing job. Poll progress via SSE:
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
+```bash
+curl -H "Authorization: Bearer <token>" \
+  http://localhost:3001/api/documents/<id>/progress
 ```
 
-Without global `turbo`, use your package manager:
+### Chat with your documents
 
-```sh
-cd my-turborepo
-npx turbo login
-bun exec turbo login
-bun exec turbo login
+```bash
+curl -X POST http://localhost:3001/api/chat \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Summarize the key findings", "documentId": "<id>"}'
 ```
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+---
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+## Project Structure
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
+```
+DocSense/
+├── apps/
+│   ├── api/            # Express 5 REST API (auth, documents, chat, search)
+│   │   └── src/
+│   │       ├── controllers/
+│   │       ├── services/
+│   │       ├── repositories/
+│   │       ├── middleware/
+│   │       └── routes/
+│   ├── worker/         # BullMQ job processor (PDF parsing + embedding)
+│   │   └── src/
+│   │       └── index.ts
+│   └── web/            # Next.js 16 frontend
+│       └── app/
+│           ├── (auth)/     # Login, register, password reset
+│           ├── documents/  # Document library
+│           ├── chat/       # Chat interface
+│           └── billing/    # Subscription management
+├── packages/
+│   ├── db/             # Drizzle ORM schema, migrations, pgvector setup
+│   ├── queue/          # BullMQ queue definitions and Redis client
+│   ├── eslint-config/  # Shared ESLint config
+│   └── typescript-config/ # Shared tsconfig bases
+├── docker-compose.yml  # PostgreSQL + Redis
+└── turbo.json          # Turborepo pipeline config
 ```
 
-Without global `turbo`:
+---
 
-```sh
-npx turbo link
-bun exec turbo link
-bun exec turbo link
+## Development Commands
+
+```bash
+# Start everything
+pnpm dev
+
+# Build all packages and apps
+pnpm build
+
+# Type-check across the monorepo
+pnpm check-types
+
+# Lint everything
+pnpm lint
+
+# Format all files
+pnpm format
+
+# Database operations (run from repo root)
+pnpm --filter api db:generate   # generate migration from schema changes
+pnpm --filter api db:migrate    # apply migrations
+pnpm --filter api db:studio     # open Drizzle Studio
+
+# Run a single app
+pnpm --filter web dev
+pnpm --filter api dev
+pnpm --filter worker dev
 ```
 
-## Useful Links
+---
 
-Learn more about the power of Turborepo:
+## License
 
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+MIT
