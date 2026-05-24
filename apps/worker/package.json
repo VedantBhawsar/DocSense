@@ -17,6 +17,7 @@
     "drizzle-orm": "^0.44.7",
     "langchain": "^1.4.2",
     "openai": "^6.39.0",
+    "p-limit": "^7.3.0",
     "pdf-parse": "^2.4.5"
   },
   "devDependencies": {

@@ -65,5 +65,7 @@ export function createPdfWorker(
   return new Worker<PdfJobData, void, PdfJobName>(PDF_QUEUE_NAME, processor, {
     connection,
     concurrency: 5,
+    lockDuration: 5 * 60 * 1000,  // 5 min — prevents stall detection on large PDFs
+    stalledInterval: 30 * 1000,   // check for stalled jobs every 30s
   });
 }

@@ -9,10 +9,19 @@ import { db, documents, chunks } from "@docsense/db";
 import { eq } from "drizzle-orm";
 import type { Job } from "bullmq";
 import OpenAI from "openai";
-import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
+import { TokenTextSplitter } from "@langchain/textsplitters";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
+import pLimit from "p-limit";
 
 const redis = createRedisConnection();
+
+function cleanText(text: string) {
+  return text
+    .replace(/\n+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/Page \d+/gi, "")
+    .trim();
+}
 
 async function processPdf(job: Job<PdfJobData>): Promise<void> {
   const { documentId, storagePath, fileName } = job.data;
@@ -20,6 +29,9 @@ async function processPdf(job: Job<PdfJobData>): Promise<void> {
   console.log(
     `[worker] processing job ${job.id} — document ${documentId} (${fileName})`,
   );
+
+  // Clean up any partial chunks from a previous failed attempt before retrying
+  await db.delete(chunks).where(eq(chunks.documentId, documentId));
 
   await db
     .update(documents)
@@ -36,30 +48,76 @@ async function processPdf(job: Job<PdfJobData>): Promise<void> {
       apiKey: process.env["OPENAI_API_KEY"],
     });
 
-    const splitter = new RecursiveCharacterTextSplitter({
+    const cleanedDocs = docs.map((doc) => ({
+      ...doc,
+      pageContent: cleanText(doc.pageContent),
+    }));
+
+    const splitter = new TokenTextSplitter({
       chunkSize: 800,
-      chunkOverlap: 150,
+      chunkOverlap: 120,
+      encodingName: "cl100k_base",
     });
 
-    const splitsDocs = await splitter.splitDocuments(docs);
+    const splitDocs = await splitter.splitDocuments(cleanedDocs);
+
+    const splitsDocs = splitDocs.filter((d) => {
+      const text = d.pageContent.trim();
+      return text.length >= 80 && text.split(/\s+/).length >= 15;
+    });
+    
     const total = splitsDocs.length;
+    const limit = pLimit(3);
+    let completed = 0;
 
-    for (let i = 0; i < total; i++) {
-      const chunk = splitsDocs[i]!;
-      const embeddingRes = await openai.embeddings.create({
-        model: "nvidia/nv-embed-v1",
-        input: chunk.pageContent,
-      });
+    const createEmbeddingWithRetry = async (
+      text: string,
+      retries = 5,
+    ): Promise<number[]> => {
+      for (let attempt = 0; attempt < retries; attempt++) {
+        try {
+          const res = await openai.embeddings.create({
+            model: "nvidia/nv-embed-v1",
+            input: text,
+          });
+          return res.data[0]!.embedding;
+        } catch (err: any) {
+          if (err?.status === 429 && attempt < retries - 1) {
+            const delay = Math.min(1000 * 2 ** attempt, 30000);
+            console.warn(
+              `[worker] 429 rate limit — retrying in ${delay}ms (attempt ${attempt + 1})`,
+            );
+            await new Promise((r) => setTimeout(r, delay));
+          } else {
+            throw err;
+          }
+        }
+      }
+      throw new Error("embedding failed after max retries");
+    };
 
-      await db.insert(chunks).values({
-        documentId,
-        content: chunk.pageContent,
-        embedding: embeddingRes.data[0]!.embedding,
-        chunkIndex: i,
-      });
+    await Promise.all(
+      splitsDocs.map((chunk, i) =>
+        limit(async () => {
+          const embedding = await createEmbeddingWithRetry(chunk.pageContent);
 
-      await publishProgress(redis, documentId, { event: "chunk", index: i + 1, total });
-    }
+          await db.insert(chunks).values({
+            documentId,
+            content: chunk.pageContent,
+            embedding,
+            chunkIndex: i,
+            metadata: chunk.metadata as Record<string, unknown>,
+          });
+
+          completed++;
+          await publishProgress(redis, documentId, {
+            event: "chunk",
+            index: completed,
+            total,
+          });
+        }),
+      ),
+    );
 
     await db
       .update(documents)
