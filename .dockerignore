@@ -1,0 +1,12 @@
+node_modules
+.next
+.turbo
+dist
+build
+.git
+.env
+uploads
+storage
+tmp
+
+.claude
