@@ -16,7 +16,6 @@ export const chunks = pgTable(
   },
   (table) => [
     index("chunks_document_id_idx").on(table.documentId),
-    index("chunks_embedding_hnsw_idx").using("hnsw", table.embedding.op("vector_cosine_ops")),
   ]
 );
 
