@@ -13,6 +13,10 @@ import { TokenTextSplitter } from "@langchain/textsplitters";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 import { DocxLoader } from "@langchain/community/document_loaders/fs/docx";
 import pLimit from "p-limit";
+import fs from "fs";
+import path from "path";
+import os from "os";
+import { downloadToFile, deleteFile } from "./lib/minio.js";
 
 const redis = createRedisConnection();
 
@@ -31,7 +35,6 @@ async function processPdf(job: Job<PdfJobData>): Promise<void> {
     `[worker] processing job ${job.id} — document ${documentId} (${fileName})`,
   );
 
-  // Clean up any partial chunks from a previous failed attempt before retrying
   await db.delete(chunks).where(eq(chunks.documentId, documentId));
 
   await db
@@ -40,11 +43,16 @@ async function processPdf(job: Job<PdfJobData>): Promise<void> {
     .where(eq(documents.id, documentId));
   await publishProgress(redis, documentId, { event: "processing" });
 
+  let localPath = "";
   try {
+    const tmpDir = os.tmpdir();
+    localPath = path.join(tmpDir, `doc-${documentId}${path.extname(fileName)}`);
+    await downloadToFile(storagePath, localPath);
+
     const isDocx = mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     const loader = isDocx
-      ? new DocxLoader(storagePath)
-      : new PDFLoader(storagePath);
+      ? new DocxLoader(localPath)
+      : new PDFLoader(localPath);
 
     const docs = await loader.load();
     const openai = new OpenAI({
@@ -140,6 +148,10 @@ async function processPdf(job: Job<PdfJobData>): Promise<void> {
       error: err instanceof Error ? err.message : "unknown error",
     });
     throw err;
+  } finally {
+    if (localPath && fs.existsSync(localPath)) {
+      fs.unlinkSync(localPath);
+    }
   }
 }
 

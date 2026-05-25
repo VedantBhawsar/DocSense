@@ -9,6 +9,7 @@ import {
   countDocumentsByUser,
 } from "../repositories/document.repository.js";
 import { createPdfQueue } from "@docsense/queue";
+import { uploadFile, deleteFile as deleteMinioFile } from "../lib/minio.js";
 
 const pdfQueue = createPdfQueue();
 
@@ -25,18 +26,23 @@ export async function uploadDocument(
     throw err;
   }
 
+  const fileBuffer = fs.readFileSync(file.path);
+  const storageKey = await uploadFile(fileBuffer, file.originalname, file.mimetype);
+
   const doc = await createDocument({
     userId,
     name: file.originalname,
     mimeType: file.mimetype,
-    storagePath: file.path,
+    storagePath: storageKey,
     status: "pending",
   });
+
+  fs.unlinkSync(file.path);
 
   await pdfQueue.add("process-pdf", {
     documentId: doc.id,
     userId,
-    storagePath: file.path,
+    storagePath: storageKey,
     mimeType: file.mimetype,
     fileName: file.originalname,
   });
@@ -76,9 +82,7 @@ export async function removeDocument(userId: string, documentId: string) {
   if (!doc) return null;
   if (doc.userId !== userId) throw new Error("Forbidden");
 
-  if (fs.existsSync(doc.storagePath)) {
-    fs.unlinkSync(doc.storagePath);
-  }
+  await deleteMinioFile(doc.storagePath);
 
   await deleteDocument(documentId);
   return doc;

@@ -3,6 +3,7 @@ import cors from "cors";
 import { PORT } from "./config/env.js";
 import { apiRouter } from "./routes/index.js";
 import { errorMiddleware } from "./middleware/error.middleware.js";
+import { ensureBucket } from "./lib/minio.js";
 
 export const app = express();
 
@@ -26,7 +27,13 @@ app.get("/", (_req, res) => {
 app.use("/api/v1", apiRouter);
 app.use(errorMiddleware);
 
-export function startServer() {
+export async function startServer() {
+  try {
+    await ensureBucket();
+    console.log("MinIO bucket ready");
+  } catch (err) {
+    console.error("MinIO bucket initialization failed:", err);
+  }
   app.listen(PORT, () => {
     console.log(`Server running on PORT:${PORT}`);
   });
