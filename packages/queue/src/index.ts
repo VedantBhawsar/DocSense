@@ -1,5 +1,10 @@
 import { Queue, Worker, type Job } from "bullmq";
 import { Redis } from 'ioredis'
+import 'dotenv/config'
+
+if(!process.env["REDIS_URL"]) { 
+  throw new Error("REDIS_URL NOT CONFIGURE")
+}
 
 export const PDF_QUEUE_NAME = "pdf-processing";
 
