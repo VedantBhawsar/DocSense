@@ -11,7 +11,7 @@ export function getProgressSubscriber(): Redis {
         if (times > 3) return null;
         return Math.min(times * 200, 2000);
       },
-      keepAlive: true,
+      keepAlive: 30000,
       enableOfflineQueue: false,
     });
 
