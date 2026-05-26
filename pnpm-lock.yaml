@@ -57,6 +57,9 @@ importers:
       express:
         specifier: ^5.2.1
         version: 5.2.1
+      ioredis:
+        specifier: ^5.10.1
+        version: 5.10.1
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3
@@ -304,6 +307,9 @@ importers:
       bullmq:
         specifier: ^5.77.1
         version: 5.77.1
+      dotenv:
+        specifier: ^17.4.2
+        version: 17.4.2
       ioredis:
         specifier: ^5.10.1
         version: 5.10.1

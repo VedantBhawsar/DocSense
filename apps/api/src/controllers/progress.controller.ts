@@ -3,7 +3,7 @@ import {
   progressChannel,
   type ProgressEvent,
 } from "@docsense/queue";
-import { getProgressSubscriber } from "src/lib/redis-subscriber";
+import { getProgressSubscriber } from "../lib/redis-subscriber.js";
 
 export async function documentProgressHandler(req: Request, res: Response) {
   const { id: documentId } = req.params as { id: string };
