@@ -13,18 +13,16 @@ const client = new minio.Client({
 const BUCKET = process.env["MINIO_BUCKET"] ?? "docs";
 
 export async function downloadToFile(storageKey: string, localPath: string): Promise<void> {
+  const tmpDir = path.dirname(localPath);
+  if (!fs.existsSync(tmpDir)) {
+    fs.mkdirSync(tmpDir, { recursive: true });
+  }
+  const stream = await client.getObject(BUCKET, storageKey);
+  const writer = fs.createWriteStream(localPath);
+  stream.pipe(writer);
   return new Promise((resolve, reject) => {
-    const tmpDir = path.dirname(localPath);
-    if (!fs.existsSync(tmpDir)) {
-      fs.mkdirSync(tmpDir, { recursive: true });
-    }
-    client.getObject(BUCKET, storageKey, (err, stream) => {
-      if (err) return reject(err);
-      const writer = fs.createWriteStream(localPath);
-      stream.pipe(writer);
-      writer.on("finish", () => resolve());
-      writer.on("error", reject);
-    });
+    writer.on("finish", () => resolve());
+    writer.on("error", reject);
   });
 }
 
