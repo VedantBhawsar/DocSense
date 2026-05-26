@@ -4,6 +4,7 @@ import { PORT } from "./config/env.js";
 import { apiRouter } from "./routes/index.js";
 import { errorMiddleware } from "./middleware/error.middleware.js";
 import { ensureBucket } from "./lib/minio.js";
+import { closeProgressSubscriber } from "./lib/redis-subscriber.js";
 
 export const app = express();
 
@@ -34,7 +35,20 @@ export async function startServer() {
   } catch (err) {
     console.error("MinIO bucket initialization failed:", err);
   }
-  app.listen(PORT, () => {
+
+  const server = app.listen(PORT, () => {
     console.log(`Server running on PORT:${PORT}`);
   });
+
+  const shutdown = async () => {
+    console.log("Shutting down...");
+    server.close(async () => {
+      await closeProgressSubscriber();
+      console.log("Server closed");
+      process.exit(0);
+    });
+  };
+
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
 }

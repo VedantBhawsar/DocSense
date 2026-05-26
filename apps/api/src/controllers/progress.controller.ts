@@ -1,9 +1,9 @@
 import type { Request, Response } from "express";
 import {
-  createProgressSubscriber,
   progressChannel,
   type ProgressEvent,
 } from "@docsense/queue";
+import { getProgressSubscriber } from "src/lib/redis-subscriber";
 
 export async function documentProgressHandler(req: Request, res: Response) {
   const { id: documentId } = req.params as { id: string };
@@ -17,7 +17,7 @@ export async function documentProgressHandler(req: Request, res: Response) {
     res.write(`data: ${JSON.stringify(payload)}\n\n`);
   };
 
-  const subscriber = createProgressSubscriber();
+  const subscriber = getProgressSubscriber();
   const channel = progressChannel(documentId);
 
   await subscriber.subscribe(channel);
