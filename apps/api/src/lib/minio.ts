@@ -30,15 +30,12 @@ export async function uploadFile(
 }
 
 export async function downloadFile(filename: string): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    client.getObject(BUCKET, filename, (err, stream) => {
-      if (err) return reject(err);
-      stream.on("data", (chunk) => chunks.push(chunk));
-      stream.on("end", () => resolve(Buffer.concat(chunks)));
-      stream.on("error", reject);
-    });
-  });
+  const stream = await client.getObject(BUCKET, filename);
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
 }
 
 export async function deleteFile(filename: string): Promise<void> {
