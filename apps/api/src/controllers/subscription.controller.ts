@@ -1,6 +1,5 @@
 import type { Request, Response } from "express";
 import { getUserPlan } from "../services/subscription.service.js";
-import { getSubscription } from "../repositories/subscription.repository.js";
 
 export async function getSubscriptionHandler(req: Request, res: Response) {
   try {

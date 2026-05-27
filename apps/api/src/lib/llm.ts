@@ -5,10 +5,9 @@ import { HumanMessage, AIMessage, SystemMessage } from "@langchain/core/messages
 const llm = new ChatOpenAI({
   apiKey: process.env["OPENAI_API_KEY_CHAT"],
   configuration: { baseURL: "https://integrate.api.nvidia.com/v1" },
-  model: "moonshotai/kimi-k2.6",
-  maxTokens: 1500,
+  model: "mistralai/mistral-small-3.1-24b",
   streaming: true,
-  temperature: 0.3
+  temperature: 0.5
 });
 
 const prompt = ChatPromptTemplate.fromMessages([

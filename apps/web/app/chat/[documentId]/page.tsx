@@ -27,6 +27,8 @@ export default function ChatPage() {
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
   const [state, setState] = useState<ChatState>("loading");
   const [sendError, setSendError] = useState("");
+  const [showUpgradeBanner, setShowUpgradeBanner] = useState(false);
+  const [messageLimitReached, setMessageLimitReached] = useState(false);
   const [docName, setDocName] = useState<string>("");
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
@@ -160,10 +162,16 @@ export default function ChatPage() {
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (err: unknown) {
-      const e = err as Error;
+      const e = err as { name?: string; message?: string; code?: string };
       if (e.name !== "AbortError") {
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
-        setSendError("Failed to send message. Please try again.");
+        if (e.code === "MESSAGE_LIMIT") {
+          setShowUpgradeBanner(true);
+          setMessageLimitReached(true);
+          setSendError("");
+        } else {
+          setSendError("Failed to send message. Please try again.");
+        }
       }
     } finally {
       setStreamingContent(null);
@@ -315,11 +323,38 @@ export default function ChatPage() {
           </div>
         )}
 
+        {showUpgradeBanner && (
+          <div className="mx-auto w-full max-w-2xl px-4 pb-2">
+            <Alert className="flex items-center gap-2 border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
+              <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <AlertDescription className="flex-1 text-amber-800 dark:text-amber-200">
+                You can only send 3 messages per document on the free plan. Upgrade to Pro for unlimited messages.
+              </AlertDescription>
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={() => router.push("/billing")}
+                className="shrink-0 gap-1 text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100 font-medium"
+              >
+                Upgrade
+              </Button>
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={() => setShowUpgradeBanner(false)}
+                className="shrink-0 gap-1 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-200"
+              >
+                Dismiss
+              </Button>
+            </Alert>
+          </div>
+        )}
+
         <ChatInput
           value={input}
           onChange={setInput}
           onSend={handleSend}
-          disabled={state !== "ready" || sending}
+          disabled={state !== "ready" || sending || messageLimitReached}
         />
       </div>
     </DashboardShell>
