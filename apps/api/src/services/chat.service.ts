@@ -81,7 +81,7 @@ export async function* sendMessageStream(
   console.log(`[chat] addMessage + getHistory: ${Date.now() - t1}ms`);
 
   const t2 = Date.now();
-  const similarChunks = await findSimilarChunks(chat.documentId, queryEmbedding, 5);
+  const similarChunks = await findSimilarChunks(chat.documentId, queryEmbedding, 10);
   console.log(`[chat] findSimilarChunks: ${Date.now() - t2}ms (${similarChunks.length} chunks)`);
 
   const context = similarChunks.map((c, i) => {
