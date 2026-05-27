@@ -16,7 +16,7 @@ import pLimit from "p-limit";
 import fs from "fs";
 import path from "path";
 import os from "os";
-import { downloadToFile, deleteFile } from "./lib/minio.js";
+import { downloadToFile, deleteFile, ensureConnection } from "./lib/minio.js";
 
 const redis = createRedisConnection();
 
@@ -155,6 +155,10 @@ async function processPdf(job: Job<PdfJobData>): Promise<void> {
   }
 }
 
+await ensureConnection();
+
+console.log("[worker] pdf-processing worker started");
+
 const worker = createPdfWorker(processPdf);
 
 worker.on("completed", (job) => {
@@ -168,8 +172,6 @@ worker.on("failed", (job, err) => {
 worker.on("error", (err) => {
   console.error("[worker] worker error:", err);
 });
-
-console.log("[worker] pdf-processing worker started");
 
 async function shutdown() {
   await worker.close();

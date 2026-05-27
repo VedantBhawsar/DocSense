@@ -12,6 +12,16 @@ const client = new minio.Client({
 
 const BUCKET = process.env["MINIO_BUCKET"] ?? "docs";
 
+export async function ensureConnection(): Promise<void> {
+  try {
+    await client.listBuckets();
+  } catch (err) {
+    throw new Error(
+      `MinIO connection failed: ${err instanceof Error ? err.message : err}`,
+    );
+  }
+}
+
 export async function downloadToFile(storageKey: string, localPath: string): Promise<void> {
   const tmpDir = path.dirname(localPath);
   if (!fs.existsSync(tmpDir)) {
