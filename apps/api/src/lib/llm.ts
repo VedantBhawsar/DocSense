@@ -5,7 +5,7 @@ import { HumanMessage, AIMessage, SystemMessage } from "@langchain/core/messages
 const llm = new ChatOpenAI({
   apiKey: process.env["OPENAI_API_KEY_CHAT"],
   configuration: { baseURL: "https://integrate.api.nvidia.com/v1" },
-  model: "mistralai/mistral-small-3.1-24b",
+  model: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
   streaming: true,
   temperature: 0.5
 });
