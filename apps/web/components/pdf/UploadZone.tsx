@@ -90,7 +90,7 @@ export function UploadZone({
             </div>
             <div className="text-center">
               <p className="text-sm font-medium text-foreground">Drop your PDF here</p>
-              <p className="text-xs text-muted-foreground mt-0.5">or click to browse · max 3 MB</p>
+              <p className="text-xs text-muted-foreground mt-0.5">or click to browse · max 5 MB</p>
             </div>
           </>
         )}

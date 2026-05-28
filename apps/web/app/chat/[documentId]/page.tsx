@@ -115,7 +115,14 @@ export default function ChatPage() {
         signal: abort.signal,
       });
 
-      if (!res.ok || !res.body) throw new Error("Stream request failed");
+      if (!res.ok || !res.body) {
+        let errorMsg = "Stream request failed";
+        try {
+          const errData = await res.json();
+          if (errData.error) errorMsg = errData.error;
+        } catch {}
+        throw new Error(errorMsg);
+      }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -169,6 +176,8 @@ export default function ChatPage() {
           setShowUpgradeBanner(true);
           setMessageLimitReached(true);
           setSendError("");
+        } else if (e.message?.includes("You can only send")) {
+          setSendError(e.message);
         } else {
           setSendError("Failed to send message. Please try again.");
         }

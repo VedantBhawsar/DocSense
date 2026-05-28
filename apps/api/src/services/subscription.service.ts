@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { getSubscription, getUsage, incrementUsage } from "../repositories/subscription.repository.js";
 
 export const PLANS = {
-  free: { documents: 3, messages: 50 },
+  free: { documents: 2, messages: 10 },
   pro: { documents: Infinity, messages: Infinity },
   enterprise: { documents: Infinity, messages: Infinity },
 } as const;

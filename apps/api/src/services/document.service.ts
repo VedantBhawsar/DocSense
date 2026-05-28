@@ -18,8 +18,8 @@ export async function uploadDocument(
   file: Express.Multer.File
 ) {
   const count = await countDocumentsByUser(userId);
-  if (count >= 1) {
-    const err = Object.assign(new Error("You can only upload 1 document. Please delete your existing document to upload a new one."), {
+  if (count >= 2) {
+    const err = Object.assign(new Error("You can only upload 2 documents. Please delete an existing document to upload a new one."), {
       status: 403,
       code: "DOCUMENT_LIMIT",
     });

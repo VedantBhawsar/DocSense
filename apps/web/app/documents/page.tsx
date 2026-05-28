@@ -117,6 +117,11 @@ export default function Home() {
   }
 
   async function handleFileSelect(file: File) {
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadState("error");
+      setErrorMsg("File size exceeds 5 MB limit");
+      return;
+    }
     setUploadState("uploading");
     setErrorMsg("");
     const form = new FormData();

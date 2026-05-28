@@ -16,8 +16,8 @@ import { streamAnswer, type LLMMessage } from "../lib/llm.js";
 import { checkMessageLimit, currentMonth } from "./subscription.service.js";
 import { incrementUsage } from "../repositories/subscription.repository.js";
 
-const MAX_CHATS_PER_USER = 3;
-const MAX_MESSAGES_PER_CHAT = 3;
+const MAX_CHATS_PER_USER = 2;
+const MAX_MESSAGES_PER_CHAT = 10;
 
 export async function getOrCreateChat(userId: string, documentId: string) {
   const existing = await getChatByDocumentAndUser(documentId, userId);
