@@ -18,12 +18,23 @@ export interface PdfJobData {
 
 export type PdfJobName = "process-pdf";
 
-export function createRedisConnection() {
-  const redis = new Redis(process.env["REDIS_URL"] ?? "redis://localhost:6379", {
-    maxRetriesPerRequest: null,
-  });
+const SHARED_REDIS_OPTIONS = {
+  maxRetriesPerRequest: null,
+  enableOfflineQueue: true,
+  keepAlive: 5000,
+  noDelay: true,
+  connectTimeout: 10000,
+  // Never give up — exponential backoff capped at 30s
+  retryStrategy: (times: number) => Math.min(times * 500, 30_000),
+  reconnectOnError: (err: Error) =>
+    /ECONNRESET|ETIMEDOUT|ENOTFOUND|ECONNREFUSED/.test(err.message),
+};
 
-  return redis
+export function createRedisConnection() {
+  return new Redis(
+    process.env["REDIS_URL"] ?? "redis://localhost:6379",
+    SHARED_REDIS_OPTIONS,
+  );
 }
 
 export function createPdfQueue() {
@@ -58,9 +69,10 @@ export async function publishProgress(
 }
 
 export function createProgressSubscriber() {
-  return new Redis(process.env["REDIS_URL"] ?? "redis://localhost:6379", {
-    maxRetriesPerRequest: null,
-  });
+  return new Redis(
+    process.env["REDIS_URL"] ?? "redis://localhost:6379",
+    SHARED_REDIS_OPTIONS,
+  );
 }
 
 export function createPdfWorker(

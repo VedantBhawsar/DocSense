@@ -3,7 +3,7 @@ import {
   progressChannel,
   type ProgressEvent,
 } from "@docsense/queue";
-import { getProgressSubscriber } from "../lib/redis-subscriber.js";
+import { getProgressSubscriber, trackChannel, untrackChannel } from "../lib/redis-subscriber.js";
 
 export async function documentProgressHandler(req: Request, res: Response) {
   const { id: documentId } = req.params as { id: string };
@@ -20,18 +20,25 @@ export async function documentProgressHandler(req: Request, res: Response) {
   const subscriber = getProgressSubscriber();
   const channel = progressChannel(documentId);
 
+  trackChannel(channel);
   await subscriber.subscribe(channel);
 
-  subscriber.on("message", (_ch: string, message: string) => {
+  const messageHandler = (_ch: string, message: string) => {
     const payload = JSON.parse(message) as ProgressEvent;
     send(payload);
     if (payload.event === "ready" || payload.event === "failed") {
-      subscriber.unsubscribe(channel).then(() => subscriber.quit());
-      res.end();
+      cleanup();
     }
-  });
+  };
 
-  req.on("close", () => {
-    subscriber.unsubscribe(channel).then(() => subscriber.quit());
-  });
+  const cleanup = () => {
+    subscriber.removeListener("message", messageHandler);
+    untrackChannel(channel);
+    subscriber.unsubscribe(channel).catch(() => {});
+    res.end();
+  };
+
+  subscriber.on("message", messageHandler);
+
+  req.on("close", cleanup);
 }
