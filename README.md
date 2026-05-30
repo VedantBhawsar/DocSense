@@ -28,9 +28,11 @@ DocSense is a full-stack RAG (Retrieval-Augmented Generation) platform that lets
 | Worker | BullMQ 5, LangChain, OpenAI SDK |
 | Database | PostgreSQL 16 + pgvector (via Drizzle ORM) |
 | Queue / Cache | Redis 7 (ioredis) |
+| Object Storage | MinIO (S3-compatible, self-hosted) |
 | Embeddings | NVIDIA NV-Embed-v1 via NVIDIA API |
 | Monorepo | Turborepo 2, pnpm workspaces |
 | Language | TypeScript 5.9 throughout |
+| Reverse Proxy | Nginx (host-level, for production VPS deployments) |
 
 **Architecture:** The API accepts uploads and enqueues a BullMQ job. The worker picks up jobs, splits PDFs into token-bounded chunks (800 tokens, 120 overlap), generates vector embeddings, and stores them in PostgreSQL. Progress events are published over Redis pub/sub and streamed to the browser via SSE. Queries hit a pgvector cosine-similarity index, and matching chunks are injected into the LLM context.
 
@@ -38,24 +40,32 @@ DocSense is a full-stack RAG (Retrieval-Augmented Generation) platform that lets
 
 ## Prerequisites
 
+**Local development:**
 - **Node.js** >= 18 (or Bun for running apps directly)
 - **pnpm** >= 11.2.2 — `npm i -g pnpm`
-- **Docker + Docker Compose** — for PostgreSQL and Redis
+- **Docker + Docker Compose** — for PostgreSQL, Redis, and MinIO
 - An **OpenAI-compatible API key** (used for NVIDIA NV-Embed-v1 embeddings and chat completions)
+
+**Production VPS:**
+- **Docker + Docker Compose** (installed automatically via `deploy.sh --setup`)
+- **Nginx** running on the host (to proxy traffic into the containerised web app)
+- A domain or static IP
 
 ---
 
 ## Getting Started
 
-### 1. Clone and install
+### Local Development
+
+#### 1. Clone and install
 
 ```bash
-git clone [https://github.com/your-username/DocSense](https://github.com/VedantBhawsar/DocSense)
+git clone https://github.com/VedantBhawsar/DocSense
 cd DocSense
 pnpm install
 ```
 
-### 2. Start infrastructure
+#### 2. Start infrastructure
 
 ```bash
 docker compose up -d
@@ -64,8 +74,9 @@ docker compose up -d
 This starts:
 - PostgreSQL 16 with pgvector at `localhost:5432`
 - Redis 7 at `localhost:6379`
+- MinIO object storage at `localhost:9000` (console at `localhost:9001`)
 
-### 3. Configure environment variables
+#### 3. Configure environment variables
 
 Copy the examples and fill in your values:
 
@@ -77,13 +88,13 @@ cp apps/web/.env.example apps/web/.env
 
 See [Environment Variables](#environment-variables) below for what each key does.
 
-### 4. Run database migrations
+#### 4. Run database migrations
 
 ```bash
 pnpm --filter api db:migrate
 ```
 
-### 5. Start development
+#### 5. Start development
 
 ```bash
 pnpm dev
@@ -96,24 +107,153 @@ This starts all apps in parallel via Turborepo:
 
 ---
 
+## Production Deployment (VPS)
+
+DocSense ships with a `deploy.sh` script that handles everything end-to-end on a Linux VPS.
+
+### First-time setup
+
+```bash
+# Clone the repo on your VPS
+git clone https://github.com/VedantBhawsar/DocSense /opt/DocSense
+cd /opt/DocSense
+
+# Run the setup wizard (installs Docker, creates .env interactively)
+bash deploy.sh --setup
+```
+
+The script will:
+1. Install Docker and Docker Compose if not already present
+2. Walk you through filling in `.env` (auto-generates secrets, validates port availability)
+3. Build all Docker images **sequentially** (one at a time to avoid freezing low-RAM VPS machines)
+4. Start all containers in the correct dependency order
+5. Wait for the API health check and print a summary
+
+### Subsequent deploys (code updates)
+
+```bash
+cd /opt/DocSense
+bash deploy.sh
+```
+
+### Full rebuild (after dependency changes)
+
+```bash
+bash deploy.sh --rebuild
+```
+
+### Docker service startup order
+
+```
+Tier 1 (parallel) : redis, db, minio
+Tier 2            : migrate          ← runs Drizzle migrations, then exits
+Tier 3 (parallel) : api, worker      ← start after migrate completes
+Tier 4            : web              ← starts after api is healthy
+```
+
+### Connecting your host Nginx
+
+The web container binds to `127.0.0.1:${WEB_PORT}` (default `3000`) on the host — it is never exposed publicly. Add a server block in your host Nginx to proxy traffic to it:
+
+```nginx
+server {
+    listen 80;
+    server_name yourdomain.com;
+
+    location / {
+        proxy_pass         http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection 'upgrade';
+        proxy_set_header   Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+If another app already owns port 3000, the setup script will detect the conflict and prompt you to choose a different port.
+
+### MinIO dashboard
+
+The MinIO console is accessible at port `9001` on your server (e.g. `http://your-server-ip:9001`). Use the `MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD` values from your `.env` to log in.
+
+---
+
 ## Environment Variables
 
-### `apps/api/.env`
+In production all variables live in a single root `.env` file. The `deploy.sh` setup wizard creates this file interactively. For local development, copy per-app examples as described in [Getting Started](#getting-started).
+
+### Root `.env` (production / Docker Compose)
+
+```env
+# ── Public URLs ───────────────────────────────────────────────────
+APP_URL=http://your-vps-ip-or-domain
+CORS_ORIGIN=http://your-vps-ip-or-domain
+NEXTAUTH_URL=http://your-vps-ip-or-domain
+
+# ── Secrets (auto-generated by deploy.sh if left blank) ──────────
+JWT_SECRET=
+JWT_REFRESH_SECRET=
+NEXTAUTH_SECRET=
+INTERNAL_SECRET=
+
+# ── JWT expiry ────────────────────────────────────────────────────
+JWT_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=7d
+
+# ── Database ──────────────────────────────────────────────────────
+DB_USER=docsense
+DB_PASSWORD=docsense123
+DB_NAME=docsense
+# (DATABASE_URL is constructed automatically from the above in docker-compose.yml)
+
+# ── MinIO object storage ──────────────────────────────────────────
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=minioadmin123
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin123
+MINIO_BUCKET=docs
+
+# ── AI / Embeddings ───────────────────────────────────────────────
+OPENAI_API_KEY=your-nvidia-api-key          # used by worker for embeddings
+OPENAI_API_KEY_CHAT=your-nvidia-api-key     # used by api for chat completions
+
+# ── Email (OTP / password reset) ──────────────────────────────────
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=you@example.com
+SMTP_PASS=your-app-password
+SMTP_FROM=noreply@yourdomain.com
+
+# ── Google OAuth (optional) ───────────────────────────────────────
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# ── Web port (host nginx proxies here) ────────────────────────────
+WEB_PORT=3000
+```
+
+### `apps/api/.env` (local development only)
 
 ```env
 PORT=3001
 DATABASE_URL=postgresql://docsense:docsense123@localhost:5432/docsense
+REDIS_URL=redis://localhost:6379
 
-# JWT
 JWT_SECRET=change-me-in-production
 JWT_EXPIRES_IN=15m
 JWT_REFRESH_SECRET=change-me-in-production
 JWT_REFRESH_EXPIRES_IN=7d
 
-# Internal service-to-service auth
 INTERNAL_SECRET=change-me-in-production
 
-# Email (for OTP / password reset)
+MINIO_ENDPOINT=localhost
+MINIO_PORT=9000
+MINIO_USE_SSL=false
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin123
+MINIO_BUCKET=docs
+
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_USER=you@example.com
@@ -121,19 +261,27 @@ SMTP_PASS=your-smtp-password
 SMTP_FROM=noreply@docsense.app
 
 APP_URL=http://localhost:3000
+CORS_ORIGIN=http://localhost:3000
 ```
 
-### `apps/worker/.env`
+### `apps/worker/.env` (local development only)
 
 ```env
 DATABASE_URL=postgresql://docsense:docsense123@localhost:5432/docsense
 REDIS_URL=redis://localhost:6379
 
+MINIO_ENDPOINT=localhost
+MINIO_PORT=9000
+MINIO_USE_SSL=false
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin123
+MINIO_BUCKET=docs
+
 # NVIDIA NV-Embed-v1 via integrate.api.nvidia.com
 OPENAI_API_KEY=your-nvidia-api-key
 ```
 
-### `apps/web/.env`
+### `apps/web/.env` (local development only)
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:3001
@@ -201,7 +349,10 @@ DocSense/
 │   ├── queue/          # BullMQ queue definitions and Redis client
 │   ├── eslint-config/  # Shared ESLint config
 │   └── typescript-config/ # Shared tsconfig bases
-├── docker-compose.yml  # PostgreSQL + Redis
+├── docker-compose.yml  # Full production stack (all services + resource limits)
+├── Dockerfile.migrate  # Standalone image that runs Drizzle migrations and exits
+├── deploy.sh           # VPS deployment script (setup, update, rebuild)
+├── nginx.conf          # Example host Nginx config for reverse-proxying the app
 └── turbo.json          # Turborepo pipeline config
 ```
 
