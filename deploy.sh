@@ -223,17 +223,37 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# STEP 5 — Build & start all containers
+# STEP 5 — Build images sequentially (one at a time to avoid VPS freeze)
 # ─────────────────────────────────────────────────────────────────────────────
 echo ""
-info "Building and starting containers..."
+info "Building images one at a time (sequential to protect VPS resources)..."
 
 if $REBUILD; then
   info "Full rebuild requested — stopping existing containers..."
   docker compose down --remove-orphans || true
-  docker compose up -d --build --force-recreate
+fi
+
+# Build each image individually so pnpm install + compile never overlap
+for svc in migrate api worker web; do
+  info "  Building $svc..."
+  if $REBUILD; then
+    docker compose build --no-cache "$svc"
+  else
+    docker compose build "$svc"
+  fi
+  success "  $svc built"
+done
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 5b — Start all containers (images already built, startup is fast)
+# ─────────────────────────────────────────────────────────────────────────────
+echo ""
+info "Starting containers..."
+
+if $REBUILD; then
+  docker compose up -d --force-recreate
 else
-  docker compose up -d --build
+  docker compose up -d
 fi
 
 success "Containers started"
