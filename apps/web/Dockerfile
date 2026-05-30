@@ -48,6 +48,10 @@ RUN pnpm install --frozen-lockfile
 # Copy full source
 COPY --from=builder /app/out/full/ .
 
+# Empty string → client bundles use relative paths; Next.js rewrites proxy internally
+ARG NEXT_PUBLIC_API_URL=""
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
 # Build only web app
 RUN pnpm turbo run build --filter=web
 
