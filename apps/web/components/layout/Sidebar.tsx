@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
 import { useTheme } from "next-themes"
-import { FileText, Home, LogOut, Sun, Moon, CreditCard, User } from "lucide-react"
+import { FileText, Home, LogOut, Sun, Moon, CreditCard } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
@@ -24,75 +24,92 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const [profileEditOpen, setProfileEditOpen] = useState(false)
 
   return (
-    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
-      <div className="flex h-14 items-center gap-2.5 border-b border-sidebar-border px-4 shrink-0">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
-          <FileText className="h-4 w-4 text-primary-foreground" />
+    <div className="flex h-full flex-col border-r" style={{ backgroundColor: 'var(--sidebar)', borderColor: 'var(--sidebar-border)' }}>
+      <div className="flex h-14 items-center gap-3 px-4 shrink-0" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
+        <div className="flex size-8 items-center justify-center rounded-lg" style={{ backgroundColor: 'var(--sidebar-primary)' }}>
+          <FileText className="size-4" style={{ color: 'var(--sidebar-primary-foreground)' }} />
         </div>
-        <span className="text-base font-semibold tracking-tight">DocSense</span>
+        <span className="text-base font-semibold" style={{ color: 'var(--sidebar-foreground)' }}>DocSense</span>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Main navigation">
-        {navLinks.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            onClick={onClose}
-            className={cn(
-              "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200",
-              pathname === href
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
-            )}
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            {label}
-          </Link>
-        ))}
+      <nav className="flex-1 overflow-y-auto p-3 space-y-1" aria-label="Main navigation">
+        {navLinks.map(({ href, label, icon: Icon }) => {
+          const isActive = pathname === href
+          return (
+            <Link
+              key={href}
+              href={href}
+              onClick={onClose}
+              className={cn(
+                "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                isActive
+                  ? "text-sidebar-primary"
+                  : "text-sidebar-foreground/70 hover:text-sidebar-foreground"
+              )}
+              style={isActive ? { backgroundColor: 'var(--sidebar-accent)' } : {}}
+            >
+              {isActive && (
+                <div 
+                  className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-r-full" 
+                  style={{ backgroundColor: 'var(--sidebar-primary)' }} 
+                />
+              )}
+              <Icon className={cn("size-4 shrink-0", isActive ? "text-sidebar-primary" : "")} />
+              {label}
+            </Link>
+          )
+        })}
       </nav>
 
-      <div className="border-t border-sidebar-border px-3 py-3 shrink-0">
-        {session?.user && (
-          <button
-            onClick={() => setProfileEditOpen(true)}
-            className="mb-2 flex w-full items-center gap-2.5 rounded-lg px-1 py-1.5 transition-colors hover:bg-sidebar-accent/50 cursor-pointer"
-          >
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-              {(session.user.name ?? session.user.email ?? "?")[0]?.toUpperCase()}
-            </div>
-            <div className="min-w-0 flex-1 text-left">
-              <p className="truncate text-xs font-medium leading-tight">
-                {session.user.name ?? "User"}
-              </p>
-              <p className="truncate text-xs text-sidebar-foreground/60">
-                {session.user.email}
-              </p>
-            </div>
-            <User className="h-3.5 w-3.5 shrink-0 text-sidebar-foreground/40" />
-          </button>
-        )}
-        <div className="flex items-center gap-1 mb-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex-1 justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground"
-            onClick={() => setSignOutConfirmOpen(true)}
-            aria-label="Sign out"
-          >
-            <LogOut className="h-4 w-4" />
-            Sign out
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="shrink-0 text-sidebar-foreground/70 hover:text-sidebar-foreground"
-            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-            aria-label="Toggle theme"
-          >
-            {resolvedTheme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </Button>
+      <div className="p-3 shrink-0" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
+        <div className="rounded-lg p-2" style={{ backgroundColor: 'var(--sidebar-accent)' }}>
+          {session?.user && (
+            <button
+              onClick={() => setProfileEditOpen(true)}
+              className="flex w-full items-center gap-3 rounded-lg p-2 transition-all cursor-pointer mb-1 group hover:opacity-80"
+            >
+              <div 
+                className="flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
+                style={{ backgroundColor: 'var(--sidebar-primary)', color: 'var(--sidebar-primary-foreground)' }}
+              >
+                {(session.user.name ?? session.user.email ?? "?")[0]?.toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1 text-left">
+                <p className="truncate text-sm font-medium" style={{ color: 'var(--sidebar-foreground)' }}>
+                  {session.user.name ?? "User"}
+                </p>
+                <p className="truncate text-xs" style={{ color: 'var(--muted-foreground)' }}>
+                  {session.user.email}
+                </p>
+              </div>
+            </button>
+          )}
+          <div className="flex items-center gap-1 pt-2" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex-1 justify-start gap-2 h-8 text-xs"
+              style={{ color: 'var(--muted-foreground)' }}
+              onClick={() => setSignOutConfirmOpen(true)}
+              aria-label="Sign out"
+            >
+              <LogOut className="size-3.5" />
+              <span className="font-medium">Sign out</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 shrink-0"
+              style={{ color: 'var(--muted-foreground)' }}
+              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+              aria-label="Toggle theme"
+            >
+              {resolvedTheme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+            </Button>
+          </div>
         </div>
       </div>
+      
       <ConfirmDialog
         open={signOutConfirmOpen}
         onOpenChange={setSignOutConfirmOpen}

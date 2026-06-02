@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useState, type DragEvent } from "react"
-import { UploadCloud, CheckCircle2, XCircle, Loader2 } from "lucide-react"
+import { UploadCloud, CheckCircle2, XCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
@@ -52,7 +52,7 @@ export function UploadZone({
   const isUploading = uploadState === "uploading"
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4 animate-fade-in-up">
       <div
         role="button"
         tabIndex={0}
@@ -63,12 +63,16 @@ export function UploadZone({
         onClick={() => !isUploading && inputRef.current?.click()}
         onKeyDown={(e) => e.key === "Enter" && !isUploading && inputRef.current?.click()}
         className={cn(
-          "flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-12 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "group relative flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-8 py-16 cursor-pointer transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 overflow-hidden",
           dragging
-            ? "border-primary bg-accent/50"
-            : "border-border hover:border-primary/50 hover:bg-accent/30",
+            ? "scale-[1.02]"
+            : "hover:bg-muted/30",
           isUploading && "pointer-events-none opacity-70"
         )}
+        style={{ 
+          borderColor: dragging ? 'var(--primary)' : 'var(--border)',
+          backgroundColor: dragging ? 'var(--primary)' + '08' : 'transparent'
+        }}
       >
         <input
           ref={inputRef}
@@ -79,39 +83,67 @@ export function UploadZone({
         />
 
         {isUploading ? (
-          <>
-            <Loader2 className="h-10 w-10 text-primary animate-spin" />
-            <p className="text-sm text-muted-foreground">Uploading…</p>
-          </>
+          <div className="relative flex flex-col items-center animate-scale-in z-10">
+            <div className="relative size-16 mb-4 flex items-center justify-center">
+              <svg className="absolute inset-0 size-full animate-spin" viewBox="0 0 100 100" style={{ color: 'var(--border)' }}>
+                <circle cx="50" cy="50" r="46" fill="none" strokeWidth="4" />
+              </svg>
+              <UploadCloud className="size-6" style={{ color: 'var(--primary)' }} />
+            </div>
+            <p className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Uploading document…</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--muted-foreground)' }}>Please wait a moment</p>
+          </div>
         ) : (
-          <>
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent">
-              <UploadCloud className="h-7 w-7 text-accent-foreground" />
+          <div className="relative z-10 flex flex-col items-center">
+            <div 
+              className={cn(
+                "flex size-16 items-center justify-center rounded-2xl transition-transform duration-300 mb-5",
+                dragging && "scale-110"
+              )}
+              style={{ backgroundColor: 'var(--primary)', opacity: 0.1 }}
+            >
+              <UploadCloud className="size-8" style={{ color: 'var(--primary)' }} />
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium text-foreground">Drop your PDF here</p>
-              <p className="text-xs text-muted-foreground mt-0.5">or click to browse · max 5 MB</p>
+              <p className="text-base font-semibold mb-1" style={{ color: 'var(--foreground)' }}>
+                {dragging ? "Drop to upload" : "Click or drag document here"}
+              </p>
+              <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>PDFs up to 50 MB</p>
             </div>
-          </>
+          </div>
         )}
       </div>
 
       {uploadState === "success" && (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          File uploaded — processing started.
+        <div 
+          className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm animate-fade-in-up"
+          style={{ 
+            border: '1px solid oklch(0.5 0.15 145)',
+            backgroundColor: 'oklch(0.5 0.15 145)' + '15',
+            color: 'oklch(0.5 0.15 145)'
+          }}
+        >
+          <CheckCircle2 className="size-5 shrink-0" />
+          <span className="font-medium">File uploaded successfully. Processing started.</span>
         </div>
       )}
 
       {uploadState === "error" && (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2">
-          <div className="flex items-center gap-2 text-sm text-destructive">
-            <XCircle className="h-4 w-4 shrink-0" />
-            {errorMsg ?? "Upload failed"}
+        <div 
+          className="flex items-center justify-between gap-3 rounded-xl px-4 py-3 animate-fade-in-up"
+          style={{ 
+            border: '1px solid var(--destructive)',
+            backgroundColor: 'var(--destructive)' + '10',
+            color: 'var(--destructive)'
+          }}
+        >
+          <div className="flex items-center gap-3 text-sm">
+            <XCircle className="size-5 shrink-0" />
+            <span className="font-medium">{errorMsg ?? "Upload failed"}</span>
           </div>
           {onRetry && (
-            <Button variant="outline" size="xs" onClick={onRetry}>
-              Retry
+            <Button variant="outline" size="sm" onClick={onRetry} className="h-8" style={{ borderColor: 'var(--destructive)' }}>
+              Try again
             </Button>
           )}
         </div>

@@ -1,6 +1,7 @@
 import {
   createChat,
   getChatByDocumentAndUser,
+  getChatsByDocumentAndUser,
   getChatById,
   getMessagesByChatId,
   addMessage,
@@ -16,13 +17,10 @@ import { streamAnswer, type LLMMessage } from "../lib/llm.js";
 import { checkMessageLimit, currentMonth } from "./subscription.service.js";
 import { incrementUsage } from "../repositories/subscription.repository.js";
 
-const MAX_CHATS_PER_USER = 2;
+const MAX_CHATS_PER_USER = 20;
 const MAX_MESSAGES_PER_CHAT = 10;
 
-export async function getOrCreateChat(userId: string, documentId: string) {
-  const existing = await getChatByDocumentAndUser(documentId, userId);
-  if (existing) return existing;
-
+export async function createChatForDocument(userId: string, documentId: string) {
   const chatCount = await countChatsByUser(userId);
   if (chatCount >= MAX_CHATS_PER_USER) {
     const err = Object.assign(new Error(`You can only create up to ${MAX_CHATS_PER_USER} chats. Please delete an existing chat to create a new one.`), {
@@ -32,14 +30,23 @@ export async function getOrCreateChat(userId: string, documentId: string) {
     throw err;
   }
 
-  return createChat({ userId, documentId, title: null });
+  // Generate a sequential title
+  const existingChats = await getChatsByDocumentAndUser(documentId, userId);
+  const title = `Chat ${existingChats.length + 1}`;
+
+  return createChat({ userId, documentId, title });
+}
+
+export async function getChatsForDocument(documentId: string, userId: string) {
+  return getChatsByDocumentAndUser(documentId, userId);
 }
 
 export async function loadChatMessages(chatId: string, userId: string) {
   const chat = await getChatById(chatId);
   if (!chat) throw Object.assign(new Error("Chat not found"), { status: 404 });
   if (chat.userId !== userId) throw Object.assign(new Error("Forbidden"), { status: 403 });
-  return getMessagesByChatId(chatId);
+  const messages = await getMessagesByChatId(chatId);
+  return { chat, messages };
 }
 
 export type StreamEvent =

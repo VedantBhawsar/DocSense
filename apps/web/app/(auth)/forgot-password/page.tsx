@@ -1,109 +1,115 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { FileText, Loader2, CheckCircle } from "lucide-react"
-import { forgotPassword } from "@/lib/api-client"
+import { Loader2, ArrowLeft, MailCheck } from "lucide-react"
+import { AuthLayout } from "@/components/layout/AuthLayout"
+
+const API_URL = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001"
 
 export default function ForgotPasswordPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [sent, setSent] = useState(false)
   const [error, setError] = useState("")
+  const [success, setSuccess] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
     setError("")
+
+    const formData = new FormData(e.currentTarget)
+    const email = formData.get("email") as string
+
     try {
-      await forgotPassword(email)
-      setSent(true)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      const res = await fetch(`${API_URL}/api/v1/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string }
+        setError(data.error ?? "Failed to send reset link")
+        return
+      }
+
+      setSuccess(true)
+    } catch {
+      setError("An unexpected error occurred")
     } finally {
       setLoading(false)
     }
   }
 
-  if (sent) {
+  if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6 text-center space-y-4">
-            <div className="flex justify-center">
-              <CheckCircle className="w-12 h-12 text-green-500" />
-            </div>
-            <h2 className="text-xl font-semibold">Check your email</h2>
-            <p className="text-muted-foreground">
-              If an account with that email exists, we&apos;ve sent a password reset link.
+      <AuthLayout>
+        <div className="space-y-6 text-center animate-fade-in-up">
+          <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
+            <MailCheck className="size-8 text-primary" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-3xl font-bold tracking-tight">Check your email</h2>
+            <p className="text-muted-foreground max-w-sm mx-auto">
+              If an account exists for that email, we have sent a password reset link.
             </p>
+          </div>
+          <div className="pt-6">
             <Link href="/login">
-              <Button variant="outline" className="w-full">Back to sign in</Button>
+              <Button variant="outline" className="w-full h-12 text-base font-medium">
+                <ArrowLeft className="mr-2 size-4" /> Back to sign in
+              </Button>
             </Link>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </div>
+      </AuthLayout>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-4">
-      <div className="w-full max-w-md space-y-6">
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary text-primary-foreground">
-            <FileText className="w-6 h-6" />
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight">Reset your password</h1>
-          <p className="text-sm text-muted-foreground">Enter your email to receive a reset link</p>
+    <AuthLayout>
+      <div className="space-y-6">
+        <div className="space-y-2 text-center lg:text-left">
+          <h2 className="text-3xl font-bold tracking-tight">Reset password</h2>
+          <p className="text-muted-foreground">
+            Enter your email address and we&apos;ll send you a link to reset your password.
+          </p>
         </div>
 
-        <Card>
-          <CardHeader className="space-y-1 pb-4">
-            <CardTitle>Forgot password</CardTitle>
-            <CardDescription>Enter your email address and we&apos;ll send you a reset link</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-6 mt-8">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input 
+              id="email" 
+              name="email" 
+              type="email" 
+              placeholder="you@example.com" 
+              required 
+              className="h-12 bg-background/50 focus:bg-background transition-colors"
+            />
+          </div>
 
-              {error && (
-                <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-2">
-                  {error}
-                </p>
-              )}
-
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Send reset link
-              </Button>
-            </form>
-
-            <p className="text-center text-sm text-muted-foreground">
-              Remember your password?{" "}
-              <Link href="/login" className="text-primary font-medium hover:underline">
-                Sign in
-              </Link>
+          {error && (
+            <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-4 py-3 animate-scale-in">
+              {error}
             </p>
-          </CardContent>
-        </Card>
+          )}
+
+          <Button type="submit" className="w-full h-12 text-base font-medium shadow-md hover:shadow-lg transition-all" disabled={loading}>
+            {loading && <Loader2 className="w-5 h-5 mr-2 animate-spin" />}
+            Send reset link
+          </Button>
+
+          <div className="text-center pt-2">
+            <Link href="/login" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowLeft className="mr-2 size-4" /> Back to sign in
+            </Link>
+          </div>
+        </form>
       </div>
-    </div>
+    </AuthLayout>
   )
 }

@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { authenticate } from "../middleware/auth.middleware.js";
 import {
-  getOrCreateChatHandler,
+  createChatHandler,
+  getChatsForDocumentHandler,
   getMessagesHandler,
   sendMessageHandler,
   exportChatHandler,
@@ -16,7 +17,8 @@ router.get("/share/:shareToken", getSharedChatHandler);
 
 router.use(authenticate);
 
-router.post("/", getOrCreateChatHandler);
+router.get("/", getChatsForDocumentHandler);
+router.post("/", createChatHandler);
 router.post("/:chatId/share", toggleShareHandler);
 router.get("/:chatId/messages", getMessagesHandler);
 router.get("/:chatId/export", exportChatHandler);

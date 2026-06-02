@@ -198,6 +198,21 @@ export default function Home() {
     setDocuments((prev) => prev.filter((d) => d.id !== id));
   }
 
+  async function handleNewChat(documentId: string) {
+    const res = await fetch(`${API_URL}/api/v1/chats`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session?.accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ documentId }),
+    });
+    if (res.ok) {
+      const { chat } = await res.json();
+      router.push(`/chat/${chat.id}`);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setErrorMsg(data.error ?? "Failed to create chat");
+    }
+  }
+
   if (!session) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
@@ -268,17 +283,19 @@ export default function Home() {
           )}
 
           {loaded && documents.length > 0 && (
-            <div className="space-y-2">
-              {documents.map((doc) => (
-                <DocumentCard
-                  key={doc.id}
-                  document={doc}
-                  progress={progress[doc.id]}
-                  onChat={() => router.push(`/chat/${doc.id}`)}
-                  onDelete={() => handleDelete(doc.id)}
-                  onRename={handleRename}
-                  onRetry={handleRetry}
-                />
+            <div className="space-y-4">
+              {documents.map((doc, i) => (
+                <div key={doc.id} className="animate-fade-in-up" style={{ animationDelay: `${i * 100}ms` }}>
+                  <DocumentCard
+                    document={doc}
+                    progress={progress[doc.id]}
+                    onNewChat={() => handleNewChat(doc.id)}
+                    onOpenChat={(chatId) => router.push(`/chat/${chatId}`)}
+                    onDelete={() => handleDelete(doc.id)}
+                    onRename={handleRename}
+                    onRetry={handleRetry}
+                  />
+                </div>
               ))}
             </div>
           )}

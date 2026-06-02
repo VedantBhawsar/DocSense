@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Search, X, Loader2, FileText } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"
@@ -100,26 +99,44 @@ export function SearchModal({ open, onClose }: { open: boolean; onClose: () => v
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] backdrop-blur-sm"
+      style={{ backgroundColor: 'var(--foreground)', opacity: 0.5 }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
-        className="w-full max-w-xl rounded-xl border border-border bg-background shadow-2xl overflow-hidden"
+        className="w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
+        style={{ backgroundColor: 'var(--background)', border: '1px solid var(--border)' }}
         onKeyDown={handleKeyDown}
       >
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
-          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <div className="flex items-center gap-3 px-4 py-4" style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--muted)' }}>
+          <div className="size-5 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--primary)', opacity: 0.1 }}>
+            <Search className="h-4 w-4" style={{ color: 'var(--primary)' }} />
+          </div>
           <input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search across all documents…"
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="flex-1 bg-transparent text-sm outline-none"
+            style={{ color: 'var(--foreground)' }}
           />
-          {loading && <Loader2 className="h-4 w-4 shrink-0 text-muted-foreground animate-spin" />}
+          {loading ? (
+            <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--muted-foreground)' }}>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Searching...</span>
+            </div>
+          ) : (
+            <kbd 
+              className="hidden sm:inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium font-mono"
+              style={{ backgroundColor: 'var(--muted)', border: '1px solid var(--border)', color: 'var(--muted-foreground)' }}
+            >
+              ESC
+            </kbd>
+          )}
           <button
             onClick={onClose}
-            className="rounded p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+            className="rounded-lg p-1.5 transition-colors hover:bg-muted"
+            style={{ color: 'var(--muted-foreground)' }}
             aria-label="Close search"
           >
             <X className="h-4 w-4" />
@@ -127,31 +144,39 @@ export function SearchModal({ open, onClose }: { open: boolean; onClose: () => v
         </div>
 
         {query.length >= 2 && !loading && results.length === 0 && (
-          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-            No results found
+          <div className="px-4 py-12 text-center animate-fade-in">
+            <div className="size-12 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ backgroundColor: 'var(--muted)' }}>
+              <Search className="h-6 w-6" style={{ color: 'var(--muted-foreground)' }} />
+            </div>
+            <p className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>No results found</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--muted-foreground)' }}>Try a different search term</p>
           </div>
         )}
 
         {results.length > 0 && (
-          <ul className="max-h-[60vh] overflow-y-auto py-1">
+          <ul className="max-h-[60vh] overflow-y-auto py-2">
             {results.map((result, index) => (
-              <li key={result.chunkId}>
+              <li key={result.chunkId} className="animate-fade-in-up" style={{ animationDelay: `${index * 50}ms` }}>
                 <button
                   className={cn(
-                    "w-full text-left px-4 py-3 flex flex-col gap-1 hover:bg-muted transition-colors",
-                    focusedIndex === index && "bg-muted"
+                    "w-full text-left px-4 py-3 flex flex-col gap-1.5 border-l-2 border-transparent transition-all",
+                    focusedIndex === index && "border-l-primary"
                   )}
+                  style={{ backgroundColor: focusedIndex === index ? 'var(--muted)' : 'transparent' }}
                   onClick={() => navigateTo(result.documentId)}
                   onMouseEnter={() => setFocusedIndex(index)}
                 >
                   <div className="flex items-center gap-2">
-                    <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <span className="text-sm font-semibold truncate">{result.documentName}</span>
-                    <Badge variant="outline" className="ml-auto shrink-0">
-                      {(result.similarity * 100).toFixed(0)}%
-                    </Badge>
+                    <FileText className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--primary)' }} />
+                    <span className="text-sm font-semibold truncate" style={{ color: 'var(--foreground)' }}>{result.documentName}</span>
+                    <span 
+                      className="ml-auto shrink-0 text-xs px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)', opacity: 0.8 }}
+                    >
+                      {(result.similarity * 100).toFixed(0)}% match
+                    </span>
                   </div>
-                  <p className="text-xs text-muted-foreground line-clamp-2 pl-5">
+                  <p className="text-xs line-clamp-2 pl-5" style={{ color: 'var(--muted-foreground)' }}>
                     {result.content.length > 120
                       ? result.content.slice(0, 120) + "…"
                       : result.content}
@@ -163,8 +188,19 @@ export function SearchModal({ open, onClose }: { open: boolean; onClose: () => v
         )}
 
         {query.length < 2 && (
-          <div className="px-4 py-6 text-center text-xs text-muted-foreground">
-            Type at least 2 characters to search
+          <div className="px-4 py-8 text-center animate-fade-in">
+            <p className="text-xs mb-3" style={{ color: 'var(--muted-foreground)' }}>Type at least 2 characters to search</p>
+            <div className="flex items-center justify-center gap-4 text-xs" style={{ color: 'var(--muted-foreground)' }}>
+              <span className="flex items-center gap-1">
+                <kbd className="rounded px-1.5 py-0.5 font-mono" style={{ backgroundColor: 'var(--muted)', border: '1px solid var(--border)' }}>↑</kbd>
+                <kbd className="rounded px-1.5 py-0.5 font-mono" style={{ backgroundColor: 'var(--muted)', border: '1px solid var(--border)' }}>↓</kbd>
+                <span>to navigate</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <kbd className="rounded px-1.5 py-0.5 font-mono" style={{ backgroundColor: 'var(--muted)', border: '1px solid var(--border)' }}>⏎</kbd>
+                <span>to select</span>
+              </span>
+            </div>
           </div>
         )}
       </div>

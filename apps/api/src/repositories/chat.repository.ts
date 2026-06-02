@@ -1,5 +1,5 @@
 import { db, chats, messages, type NewChat, type NewMessage } from "@docsense/db";
-import { eq, sql, count } from "drizzle-orm";
+import { eq, and, desc, sql, count } from "drizzle-orm";
 
 export async function createChat(data: NewChat) {
   const [chat] = await db.insert(chats).values(data).returning();
@@ -10,9 +10,17 @@ export async function getChatByDocumentAndUser(documentId: string, userId: strin
   const [chat] = await db
     .select()
     .from(chats)
-    .where(eq(chats.documentId, documentId))
+    .where(and(eq(chats.documentId, documentId), eq(chats.userId, userId)))
     .limit(1);
   return chat ?? null;
+}
+
+export async function getChatsByDocumentAndUser(documentId: string, userId: string) {
+  return db
+    .select()
+    .from(chats)
+    .where(and(eq(chats.documentId, documentId), eq(chats.userId, userId)))
+    .orderBy(desc(chats.createdAt));
 }
 
 export async function getChatById(chatId: string) {

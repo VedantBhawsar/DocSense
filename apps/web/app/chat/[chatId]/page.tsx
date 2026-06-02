@@ -17,10 +17,9 @@ type ChatState = "loading" | "ready" | "error";
 
 export default function ChatPage() {
   const { data: session } = useSession();
-  const { documentId } = useParams<{ documentId: string }>();
+  const { chatId } = useParams<{ chatId: string }>();
   const router = useRouter();
 
-  const [chatId, setChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -39,43 +38,34 @@ export default function ChatPage() {
   const token = session?.accessToken;
 
   const initChat = useCallback(async () => {
-    if (!token) return;
+    if (!token || !chatId) return;
     try {
-      const [chatRes, docRes] = await Promise.all([
-        fetch(`${API_URL}/api/v1/chats`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ documentId }),
-        }),
-        fetch(`${API_URL}/api/v1/documents`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-      ]);
+      const msgRes = await fetch(`${API_URL}/api/v1/chats/${chatId}/messages`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-      if (!chatRes.ok) throw new Error("Failed to initialize chat");
-      const { chat } = await chatRes.json();
-      setChatId(chat.id);
+      if (!msgRes.ok) throw new Error("Failed to initialize chat");
+      
+      const { chat, messages: history } = await msgRes.json();
       setShareToken(chat.shareToken ?? null);
+      setMessages(history);
+
+      // Fetch documents to get the name
+      const docRes = await fetch(`${API_URL}/api/v1/documents`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       if (docRes.ok) {
         const { documents } = await docRes.json();
-        const doc = documents.find((d: { id: string; name: string }) => d.id === documentId);
+        const doc = documents.find((d: { id: string; name: string }) => d.id === chat.documentId);
         if (doc) setDocName(doc.name);
-      }
-
-      const msgRes = await fetch(`${API_URL}/api/v1/chats/${chat.id}/messages`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (msgRes.ok) {
-        const { messages: history } = await msgRes.json();
-        setMessages(history);
       }
 
       setState("ready");
     } catch {
       setState("error");
     }
-  }, [token, documentId]);
+  }, [token, chatId]);
 
   useEffect(() => {
     if (session?.accessToken) initChat();

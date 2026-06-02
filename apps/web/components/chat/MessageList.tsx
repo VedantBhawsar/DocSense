@@ -26,7 +26,7 @@ export function MessageList({
 }: MessageListProps) {
   if (state === "loading") {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+      <div className="flex h-full items-center justify-center" style={{ color: 'var(--muted-foreground)' }}>
         Loading chat…
       </div>
     )
@@ -34,7 +34,7 @@ export function MessageList({
 
   if (state === "error") {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-destructive">
+      <div className="flex h-full items-center justify-center" style={{ color: 'var(--destructive)' }}>
         Failed to load chat. Please refresh.
       </div>
     )
@@ -42,20 +42,30 @@ export function MessageList({
 
   if (messages.length === 0 && !sending) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent">
-          <MessageSquare className="h-7 w-7 text-accent-foreground" />
+      <div className="flex h-full flex-col items-center justify-center gap-6 px-6 text-center">
+        <div className="relative animate-fade-in-up">
+          <div 
+            className="size-20 rounded-2xl flex items-center justify-center animate-scale-in"
+            style={{ backgroundColor: 'var(--primary)' }}
+          >
+            <MessageSquare className="h-10 w-10" style={{ color: 'var(--primary-foreground)' }} />
+          </div>
         </div>
-        <div>
-          <p className="text-base font-medium text-foreground">Ask anything about this PDF</p>
-          <p className="mt-1 text-sm text-muted-foreground">Your conversation history is saved.</p>
+        <div className="animate-fade-in-up animate-stagger-1">
+          <p className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Ask anything about this PDF</p>
+          <p className="mt-1 text-sm" style={{ color: 'var(--muted-foreground)' }}>Your conversation history is saved.</p>
         </div>
-        <div className="flex w-full max-w-sm flex-col gap-2">
-          {STARTER_QUESTIONS.map((q) => (
+        <div className="flex w-full max-w-sm flex-col gap-2 animate-fade-in-up animate-stagger-2">
+          {STARTER_QUESTIONS.map((q, i) => (
             <button
               key={q}
               onClick={() => onSuggestionClick(q)}
-              className="cursor-pointer rounded-xl border border-border bg-card px-4 py-2.5 text-left text-sm text-foreground transition-colors duration-200 hover:border-primary/20 hover:bg-accent"
+              className="cursor-pointer rounded-xl border px-4 py-3 text-left text-sm transition-all duration-200 hover:-translate-y-0.5"
+              style={{ 
+                borderColor: 'var(--border)', 
+                backgroundColor: 'var(--card)', 
+                color: 'var(--foreground)'
+              }}
             >
               {q}
             </button>
@@ -90,11 +100,14 @@ export function MessageList({
 
       {sending && streamingContent === null && (
         <div className="flex justify-start">
-          <div className="rounded-2xl rounded-bl-sm border border-border bg-card px-4 py-3 shadow-sm">
+          <div 
+            className="rounded-2xl rounded-bl-sm border px-4 py-3"
+            style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
+          >
             <div className="flex items-center gap-1">
-              <span className="typing-dot h-1.5 w-1.5 rounded-full bg-muted-foreground" />
-              <span className="typing-dot h-1.5 w-1.5 rounded-full bg-muted-foreground" />
-              <span className="typing-dot h-1.5 w-1.5 rounded-full bg-muted-foreground" />
+              <span className="typing-dot h-1.5 w-1.5 rounded-full" style={{ backgroundColor: 'var(--muted-foreground)' }} />
+              <span className="typing-dot h-1.5 w-1.5 rounded-full" style={{ backgroundColor: 'var(--muted-foreground)' }} />
+              <span className="typing-dot h-1.5 w-1.5 rounded-full" style={{ backgroundColor: 'var(--muted-foreground)' }} />
             </div>
           </div>
         </div>
