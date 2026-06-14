@@ -63,7 +63,7 @@ export function UploadZone({
         onClick={() => !isUploading && inputRef.current?.click()}
         onKeyDown={(e) => e.key === "Enter" && !isUploading && inputRef.current?.click()}
         className={cn(
-          "group relative flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-8 py-16 cursor-pointer transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 overflow-hidden",
+          "group relative flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-8 py-16 cursor-pointer transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 overflow-hidden hover:border hover:border-dotted",
           dragging
             ? "scale-[1.02]"
             : "hover:bg-muted/30",
@@ -97,18 +97,17 @@ export function UploadZone({
           <div className="relative z-10 flex flex-col items-center">
             <div 
               className={cn(
-                "flex size-16 items-center justify-center rounded-2xl transition-transform duration-300 mb-5",
+                "flex size-16 items-center justify-center rounded-2xl transition-transform duration-300 mb-5 bg-primary/10",
                 dragging && "scale-110"
               )}
-              style={{ backgroundColor: 'var(--primary)', opacity: 0.1 }}
             >
-              <UploadCloud className="size-8" style={{ color: 'var(--primary)' }} />
+              <UploadCloud className="size-8 text-primary"               />
             </div>
             <div className="text-center">
               <p className="text-base font-semibold mb-1" style={{ color: 'var(--foreground)' }}>
                 {dragging ? "Drop to upload" : "Click or drag document here"}
               </p>
-              <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>PDFs up to 50 MB</p>
+              <p className="text-sm text-muted-foreground">PDFs up to 50 MB</p>
             </div>
           </div>
         )}

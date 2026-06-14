@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState } from "react"
 import { FileText, MessageSquare, Trash2, Loader2, Pencil, RefreshCw, ChevronDown, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useSession } from "next-auth/react"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
+import { DocumentRenameDialog } from "./document-rename-dialog"
 
 type DocProgress =
   | { stage: "processing" }
@@ -50,36 +51,10 @@ export function DocumentCard({ document: doc, progress, onNewChat, onOpenChat, o
   const isChunking = progress?.stage === "chunk"
   const pct = isChunking ? Math.round((progress.index / progress.total) * 100) : 0
 
-  const [editing, setEditing] = useState(false)
-  const [draftName, setDraftName] = useState(doc.name)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false)
 
-  useEffect(() => {
-    if (editing) {
-      inputRef.current?.focus()
-      inputRef.current?.select()
-    }
-  }, [editing])
-
-  function startEdit() {
-    setDraftName(doc.name)
-    setEditing(true)
-  }
-
-  async function commitEdit() {
-    const trimmed = draftName.trim()
-    setEditing(false)
-    if (!trimmed || trimmed === doc.name) return
-    onRename?.(doc.id, trimmed)
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
-      e.preventDefault()
-      commitEdit()
-    } else if (e.key === "Escape") {
-      setEditing(false)
-    }
+  function handleRename(newName: string) {
+    onRename?.(doc.id, newName)
   }
 
   async function loadChats() {
@@ -114,47 +89,30 @@ export function DocumentCard({ document: doc, progress, onNewChat, onOpenChat, o
     >
       <div className="flex items-start gap-4">
         <div 
-          className="flex size-10 shrink-0 items-center justify-center rounded-xl transition-colors"
-          style={{ backgroundColor: 'var(--primary)', opacity: 0.1 }}
+          className="flex size-10 shrink-0 items-center justify-center rounded-xl transition-colors bg-primary/10"
         >
-          <FileText className="size-5" style={{ color: 'var(--primary)' }} />
+          <FileText className="size-5 text-primary"  />
         </div>
 
         <div className="min-w-0 flex-1">
-          {editing ? (
-            <input
-              ref={inputRef}
-              value={draftName}
-              onChange={(e) => setDraftName(e.target.value)}
-              onBlur={commitEdit}
-              onKeyDown={handleKeyDown}
-              className="w-full truncate rounded-md px-2 py-1 text-sm font-medium outline-none"
-              style={{ 
-                border: '1px solid var(--primary)', 
-                backgroundColor: 'var(--background)', 
-                color: 'var(--foreground)'
-              }}
-            />
-          ) : (
-            <div className="flex items-center gap-1.5">
-              <p 
-                className="truncate text-base font-semibold cursor-pointer transition-colors" 
-                title={doc.name} 
-                onClick={startEdit}
-                style={{ color: 'var(--foreground)' }}
-              >
-                {doc.name}
-              </p>
-              <button
-                onClick={startEdit}
-                aria-label={`Rename ${doc.name}`}
-                className="shrink-0 rounded p-1 transition-opacity hover:bg-muted"
-                style={{ color: 'var(--muted-foreground)' }}
-              >
-                <Pencil className="size-3.5" />
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-1.5">
+            <p 
+              className="truncate text-base font-semibold cursor-pointer transition-colors" 
+              title={doc.name} 
+              onClick={() => setRenameDialogOpen(true)}
+              style={{ color: 'var(--foreground)' }}
+            >
+              {doc.name}
+            </p>
+            <button
+              onClick={() => setRenameDialogOpen(true)}
+              aria-label={`Rename ${doc.name}`}
+              className="shrink-0 rounded p-1 transition-opacity hover:bg-muted"
+              style={{ color: 'var(--muted-foreground)' }}
+            >
+              <Pencil className="size-3.5" />
+            </button>
+          </div>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <span 
               className="text-xs font-medium px-1.5 py-0.5 rounded-md"
@@ -173,8 +131,6 @@ export function DocumentCard({ document: doc, progress, onNewChat, onOpenChat, o
                 </span>
               </>
             )}
-            <span className="text-xs" style={{ color: 'var(--muted-foreground)', opacity: 0.5 }}>•</span>
-            <StatusBadge status={doc.status} progress={progress} />
           </div>
         </div>
 
@@ -306,6 +262,13 @@ export function DocumentCard({ document: doc, progress, onNewChat, onOpenChat, o
           </Button>
         </div>
       )}
+
+      <DocumentRenameDialog
+        open={renameDialogOpen}
+        onOpenChange={setRenameDialogOpen}
+        documentName={doc.name}
+        onRename={handleRename}
+      />
     </div>
   )
 }

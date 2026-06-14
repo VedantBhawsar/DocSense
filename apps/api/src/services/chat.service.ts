@@ -10,15 +10,52 @@ import {
   getChatByShareToken,
   countChatsByUser,
   countMessagesByChatId,
+  getRecentChatsWithMessages,
+  getChatSummariesForDocument,
 } from "../repositories/chat.repository.js";
 import { randomUUID } from "crypto";
 import { embedQuery } from "./embedding.service.js";
 import { streamAnswer, type LLMMessage } from "../lib/llm.js";
 import { checkMessageLimit, currentMonth } from "./subscription.service.js";
 import { incrementUsage } from "../repositories/subscription.repository.js";
+import { getOrCreateChatSummary } from "./summary.service.js";
 
 const MAX_CHATS_PER_USER = 20;
 const MAX_MESSAGES_PER_CHAT = 10;
+const RECENT_CHATS_LIMIT = 3;
+const SUMMARIES_LIMIT = 10;
+
+async function buildMemoryContext(documentId: string, userId: string, currentChatId: string) {
+  const recentChats = await getRecentChatsWithMessages(documentId, userId, currentChatId, RECENT_CHATS_LIMIT);
+  const summaries = await getChatSummariesForDocument(documentId, userId, currentChatId, SUMMARIES_LIMIT);
+
+  let memoryContext = "";
+
+  if (recentChats.length > 0) {
+    memoryContext += "====================\nRECENT CHATS (Full Context)\n====================\n\n";
+    for (const chat of recentChats) {
+      const msgs = await getMessagesByChatId(chat.id);
+      const chatTitle = chat.title || `Chat ${chat.id.slice(0, 8)}`;
+      memoryContext += `--- ${chatTitle} ---\n`;
+      for (const m of msgs) {
+        const role = m.role === "user" ? "User" : "Assistant";
+        memoryContext += `${role}: ${m.content}\n`;
+      }
+      memoryContext += "\n";
+    }
+  }
+
+  if (summaries.length > 0) {
+    memoryContext += "====================\nPREVIOUS CHAT SUMMARIES\n====================\n\n";
+    for (const s of summaries) {
+      const chatTitle = s.chatTitle || `Chat ${s.chatId.slice(0, 8)}`;
+      memoryContext += `• ${chatTitle}: ${s.summary}\n`;
+    }
+    memoryContext += "\n";
+  }
+
+  return memoryContext;
+}
 
 export async function createChatForDocument(userId: string, documentId: string) {
   const chatCount = await countChatsByUser(userId);
@@ -30,7 +67,6 @@ export async function createChatForDocument(userId: string, documentId: string) 
     throw err;
   }
 
-  // Generate a sequential title
   const existingChats = await getChatsByDocumentAndUser(documentId, userId);
   const title = `Chat ${existingChats.length + 1}`;
 
@@ -88,8 +124,11 @@ export async function* sendMessageStream(
   console.log(`[chat] addMessage + getHistory: ${Date.now() - t1}ms`);
 
   const t2 = Date.now();
-  const similarChunks = await findSimilarChunks(chat.documentId, queryEmbedding, 10);
-  console.log(`[chat] findSimilarChunks: ${Date.now() - t2}ms (${similarChunks.length} chunks)`);
+  const [similarChunks, memoryContext] = await Promise.all([
+    findSimilarChunks(chat.documentId, queryEmbedding, 10),
+    buildMemoryContext(chat.documentId, userId, chatId),
+  ]);
+  console.log(`[chat] findSimilarChunks + buildMemoryContext: ${Date.now() - t2}ms`);
 
   const context = similarChunks.map((c, i) => {
     const loc = c.metadata?.loc as { pageNumber?: number } | undefined;
@@ -101,15 +140,20 @@ const systemPrompt = `
 You are a professional document assistant.
 
 Your task is to answer user questions ONLY using the provided context.
-
-=====================
+${memoryContext ? `
+====================
+CONVERSATION MEMORY
+====================
+${memoryContext}
+` : ""}
+====================
 DOCUMENT CONTEXT
-=====================
+====================
 ${context}
 
-=====================
+====================
 RESPONSE INSTRUCTIONS
-=====================
+====================
 
 FORMAT:
 - Use clean Markdown formatting.
@@ -170,6 +214,8 @@ The response should look like high-quality documentation, not casual chat.
 
   await addMessage({ chatId, role: "assistant", content: fullResponse });
   await incrementUsage(userId, currentMonth(), "messageCount");
+
+  getOrCreateChatSummary(chatId).catch((err) => console.error("[chat] Failed to generate summary:", err));
 }
 
 export async function toggleShareLink(chatId: string, userId: string) {

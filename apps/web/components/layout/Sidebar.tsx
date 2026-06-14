@@ -26,10 +26,10 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   return (
     <div className="flex h-full flex-col border-r" style={{ backgroundColor: 'var(--sidebar)', borderColor: 'var(--sidebar-border)' }}>
       <div className="flex h-14 items-center gap-3 px-4 shrink-0" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
-        <div className="flex size-8 items-center justify-center rounded-lg" style={{ backgroundColor: 'var(--sidebar-primary)' }}>
-          <FileText className="size-4" style={{ color: 'var(--sidebar-primary-foreground)' }} />
+        <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
+          <FileText className="size-4 text-primary-foreground" />
         </div>
-        <span className="text-base font-semibold" style={{ color: 'var(--sidebar-foreground)' }}>DocSense</span>
+        <span className="text-base font-semibold text-sidebar-foreground">DocSense</span>
       </div>
 
       <nav className="flex-1 overflow-y-auto p-3 space-y-1" aria-label="Main navigation">
@@ -69,8 +69,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
               className="flex w-full items-center gap-3 rounded-lg p-2 transition-all cursor-pointer mb-1 group hover:opacity-80"
             >
               <div 
-                className="flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-                style={{ backgroundColor: 'var(--sidebar-primary)', color: 'var(--sidebar-primary-foreground)' }}
+                className="flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold bg-primary text-primary-foreground"
               >
                 {(session.user.name ?? session.user.email ?? "?")[0]?.toUpperCase()}
               </div>

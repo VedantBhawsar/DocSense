@@ -1,4 +1,4 @@
-import { db, chats, messages, type NewChat, type NewMessage } from "@docsense/db";
+import { db, chats, messages, chatSummaries, type NewChat, type NewMessage, type NewChatSummary } from "@docsense/db";
 import { eq, and, desc, sql, count } from "drizzle-orm";
 
 export async function createChat(data: NewChat) {
@@ -86,4 +86,57 @@ export async function findSimilarChunks(documentId: string, embedding: number[],
     `
   );
   return rows.rows;
+}
+
+export async function getChatSummary(chatId: string) {
+  const [summary] = await db
+    .select()
+    .from(chatSummaries)
+    .where(eq(chatSummaries.chatId, chatId));
+  return summary ?? null;
+}
+
+export async function upsertChatSummary(data: NewChatSummary) {
+  const existing = await getChatSummary(data.chatId);
+  if (existing) {
+    const [updated] = await db
+      .update(chatSummaries)
+      .set({ summary: data.summary, messageCount: data.messageCount, updatedAt: new Date() })
+      .where(eq(chatSummaries.chatId, data.chatId))
+      .returning();
+    return updated!;
+  }
+  const [created] = await db.insert(chatSummaries).values(data).returning();
+  return created!;
+}
+
+export async function getRecentChatsWithMessages(documentId: string, userId: string, excludeChatId: string, limit = 3) {
+  return db
+    .select()
+    .from(chats)
+    .where(and(
+      eq(chats.documentId, documentId),
+      eq(chats.userId, userId),
+    ))
+    .orderBy(desc(chats.updatedAt))
+    .limit(limit);
+}
+
+export async function getChatSummariesForDocument(documentId: string, userId: string, excludeChatId: string, limit = 10) {
+  return db
+    .select({
+      summary: chatSummaries.summary,
+      messageCount: chatSummaries.messageCount,
+      chatId: chatSummaries.chatId,
+      chatTitle: chats.title,
+      chatCreatedAt: chats.createdAt,
+    })
+    .from(chatSummaries)
+    .innerJoin(chats, eq(chats.id, chatSummaries.chatId))
+    .where(and(
+      eq(chats.documentId, documentId),
+      eq(chats.userId, userId),
+    ))
+    .orderBy(desc(chatSummaries.updatedAt))
+    .limit(limit);
 }
