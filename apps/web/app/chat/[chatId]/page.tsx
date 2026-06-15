@@ -9,7 +9,7 @@ import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import type { Message } from "@/components/chat/MessageBubble";
+import type { Message, MessageUsage } from "@/components/chat/MessageBubble";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -119,6 +119,7 @@ export default function ChatPage() {
       let buffer = "";
       let accumulated = "";
       let suggestions: string[] = [];
+      let usage: MessageUsage | undefined = undefined;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -143,6 +144,9 @@ export default function ChatPage() {
             if (parsed.suggestions) {
               suggestions = parsed.suggestions;
             }
+            if (parsed.usage) {
+              usage = parsed.usage;
+            }
           } catch {
             // malformed chunk — skip
           }
@@ -156,6 +160,7 @@ export default function ChatPage() {
         content: accumulated,
         createdAt: new Date().toISOString(),
         suggestions,
+        usage,
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (err: unknown) {

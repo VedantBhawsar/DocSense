@@ -5,6 +5,15 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { Copy, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { formatTokenCount, formatUsd } from "@/lib/format"
+
+export type MessageUsage = {
+  model?: string
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+  costUsd: number
+}
 
 export type Message = {
   id: string
@@ -13,6 +22,7 @@ export type Message = {
   content: string
   createdAt: string
   suggestions?: string[]
+  usage?: MessageUsage
 }
 
 function formatTime(iso: string) {
@@ -90,6 +100,11 @@ export function MessageBubble({ message: msg, streaming, onSuggestionClick }: Me
 
       <div className={cn("flex items-center gap-2 px-1 mt-0.5", isUser ? "flex-row-reverse" : "flex-row")}>
         <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>{formatTime(msg.createdAt)}</span>
+        {!isUser && !streaming && msg.usage && (
+          <span className="text-xs" style={{ color: 'var(--muted-foreground)' }} title={`Model: ${msg.usage.model ?? '—'}`}>
+            · {formatTokenCount(msg.usage.totalTokens)} · {formatUsd(msg.usage.costUsd)}
+          </span>
+        )}
         {!streaming && (
           <button
             onClick={handleCopy}

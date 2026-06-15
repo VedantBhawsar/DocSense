@@ -1,6 +1,5 @@
 import {
   createChat,
-  getChatByDocumentAndUser,
   getChatsByDocumentAndUser,
   getChatById,
   getMessagesByChatId,
@@ -15,8 +14,9 @@ import {
 } from "../repositories/chat.repository.js";
 import { randomUUID } from "crypto";
 import { embedQuery } from "./embedding.service.js";
-import { streamAnswer, type LLMMessage } from "../lib/llm.js";
+import { streamAnswer, type LLMMessage, type LLMStreamChunk } from "../lib/llm.js";
 import { checkMessageLimit, currentMonth } from "./subscription.service.js";
+import { computeCostUsd } from "../config/pricing.js";
 import { incrementUsage } from "../repositories/subscription.repository.js";
 import { getOrCreateChatSummary } from "./summary.service.js";
 
@@ -87,7 +87,8 @@ export async function loadChatMessages(chatId: string, userId: string) {
 
 export type StreamEvent =
   | { type: "token"; value: string }
-  | { type: "suggestions"; value: string[] };
+  | { type: "suggestions"; value: string[] }
+  | { type: "usage"; promptTokens: number; completionTokens: number; totalTokens: number; costUsd: number; model: string };
 
 export async function* sendMessageStream(
   chatId: string,
@@ -136,61 +137,57 @@ export async function* sendMessageStream(
     return `[Excerpt ${i + 1}${pageLabel}]\n${c.content}`;
   }).join("\n\n");
 
-const systemPrompt = `
-You are a professional document assistant.
+const memorySection = memoryContext
+  ? `====================\nCONVERSATION MEMORY\n====================\n${memoryContext}\n\n`
+  : "";
 
-Your task is to answer user questions ONLY using the provided context.
-${memoryContext ? `
-====================
-CONVERSATION MEMORY
-====================
-${memoryContext}
-` : ""}
-====================
-DOCUMENT CONTEXT
-====================
-${context}
+const systemPrompt = `You are a professional document assistant.
+      Your task is to answer user questions ONLY using the provided context.
+      ${memorySection}====================
+      DOCUMENT CONTEXT
+      ====================
+      ${context}
 
-====================
-RESPONSE INSTRUCTIONS
-====================
+      ====================
+      RESPONSE INSTRUCTIONS
+      ====================
 
-FORMAT:
-- Use clean Markdown formatting.
-- Structure responses with:
-  - ## Headings
-  - ### Subheadings
-  - Bullet points
-  - Numbered lists
-  - Tables when useful
-  - Code blocks for code/examples
+      FORMAT:
+      - Use clean Markdown formatting.
+      - Structure responses with:
+        - ## Headings
+        - ### Subheadings
+        - Bullet points
+        - Numbered lists
+        - Tables when useful
+        - Code blocks for code/examples
 
-STYLE:
-- Keep responses concise and structured.
-- Avoid large paragraphs.
-- Use short sections.
-- Bold important insights.
-- Make answers easy to scan.
+      STYLE:
+      - Keep responses concise and structured.
+      - Avoid large paragraphs.
+      - Use short sections.
+      - Bold important insights.
+      - Make answers easy to scan.
 
-ANSWER FLOW:
-1. ## Summary
-2. ## Detailed Explanation
-3. ## Important Points
-4. ## Example / Reference
-5. ## Conclusion
+      ANSWER FLOW:
+      1. ## Summary
+      2. ## Detailed Explanation
+      3. ## Important Points
+      4. ## Example / Reference
+      5. ## Conclusion
 
-RULES:
-- ONLY answer from the provided context.
-- Do NOT invent information.
-- If information is missing, say:
-  "This information is not available in the provided document."
-- If multiple answers exist, organize them clearly.
-- For comparisons, use tables.
-- For processes, use numbered steps.
-- For technical topics, include code examples if present in context.
+      RULES:
+      - ONLY answer from the provided context.
+      - Do NOT invent information.
+      - If information is missing, say:
+        "This information is not available in the provided document."
+      - If multiple answers exist, organize them clearly.
+      - For comparisons, use tables.
+      - For processes, use numbered steps.
+      - For technical topics, include code examples if present in context.
 
-OUTPUT QUALITY:
-The response should look like high-quality documentation, not casual chat.
+      OUTPUT QUALITY:
+      The response should look like high-quality documentation, not casual chat.
 `;
 
   const llmHistory: LLMMessage[] = history.slice(-10).map((m) => ({
@@ -201,19 +198,50 @@ The response should look like high-quality documentation, not casual chat.
   const t3 = Date.now();
   let firstToken = true;
   let fullResponse = "";
-  for await (const token of streamAnswer(systemPrompt, llmHistory, userText)) {
-    if (firstToken) {
-      console.log(`[chat] time to first token: ${Date.now() - t3}ms`);
-      firstToken = false;
+  let usageChunk: LLMStreamChunk | undefined;
+
+  for await (const chunk of streamAnswer(systemPrompt, llmHistory, userText)) {
+    if (chunk.type === "token") {
+      if (firstToken) {
+        console.log(`[chat] time to first token: ${Date.now() - t3}ms`);
+        firstToken = false;
+      }
+      fullResponse += chunk.value;
+      yield { type: "token", value: chunk.value };
+    } else if (chunk.type === "usage") {
+      usageChunk = chunk;
     }
-    fullResponse += token;
-    yield { type: "token", value: token };
   }
   console.log(`[chat] LLM stream complete: ${Date.now() - t3}ms (${fullResponse.length} chars)`);
   console.log(`[chat] total: ${Date.now() - t0}ms`);
 
-  await addMessage({ chatId, role: "assistant", content: fullResponse });
+  const u = usageChunk as LLMStreamChunk | undefined;
+  const model = (u?.type === "usage" ? u.model : undefined) ?? process.env["CHAT_MODEL"] ?? "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning";
+  const promptTokens = u?.type === "usage" ? u.promptTokens : 0;
+  const completionTokens = u?.type === "usage" ? u.completionTokens : 0;
+  const totalTokens = u?.type === "usage" ? u.totalTokens : 0;
+  const costUsd = computeCostUsd(model, promptTokens, completionTokens);
+
+  await addMessage({
+    chatId,
+    role: "assistant",
+    content: fullResponse,
+    model,
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    costCents: String(costUsd),
+  });
   await incrementUsage(userId, currentMonth(), "messageCount");
+
+  yield {
+    type: "usage",
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    costUsd,
+    model,
+  };
 
   getOrCreateChatSummary(chatId).catch((err) => console.error("[chat] Failed to generate summary:", err));
 }

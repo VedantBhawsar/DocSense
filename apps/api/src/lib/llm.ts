@@ -21,11 +21,26 @@ export interface LLMMessage {
   content: string;
 }
 
+export interface LLMTokenChunk {
+  type: "token";
+  value: string;
+}
+
+export interface LLMUsageChunk {
+  type: "usage";
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  model: string;
+}
+
+export type LLMStreamChunk = LLMTokenChunk | LLMUsageChunk;
+
 export async function* streamAnswer(
   systemPrompt: string,
   history: LLMMessage[],
   userInput: string
-): AsyncGenerator<string> {
+): AsyncGenerator<LLMStreamChunk> {
   const langchainHistory = history.slice(0, -1).map((m) =>
     m.role === "user" ? new HumanMessage(m.content) : new AIMessage(m.content)
   );
@@ -37,8 +52,23 @@ export async function* streamAnswer(
     input: userInput,
   });
 
+  let lastChunk: any = undefined;
   for await (const chunk of stream) {
+    lastChunk = chunk;
     const text = typeof chunk.content === "string" ? chunk.content : "";
-    if (text) yield text;
+    if (text) yield { type: "token", value: text };
+  }
+
+  const usageMeta = lastChunk?.usage_metadata;
+  const rawUsage = lastChunk?.response_metadata?.tokenUsage;
+  if (usageMeta || rawUsage) {
+    const u = usageMeta ?? rawUsage;
+    yield {
+      type: "usage",
+      promptTokens: u.input_tokens ?? u.promptTokens ?? 0,
+      completionTokens: u.output_tokens ?? u.completionTokens ?? 0,
+      totalTokens: u.total_tokens ?? 0,
+      model: process.env["CHAT_MODEL"] || "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+    };
   }
 }

@@ -12,6 +12,11 @@ export interface ChatMessageResponse {
   role: "user" | "assistant";
   content: string;
   createdAt: string;
+  model?: string;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  costCents?: number;
 }
 
 export interface ChatResponse {

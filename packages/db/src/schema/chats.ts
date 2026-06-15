@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, pgEnum, integer, numeric } from "drizzle-orm/pg-core";
 import { users } from "./users.js";
 import { documents } from "./documents.js";
 
@@ -26,6 +26,11 @@ export const messages = pgTable("messages", {
   role: messageRoleEnum("role").notNull(),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  model: text("model"),
+  promptTokens: integer("prompt_tokens"),
+  completionTokens: integer("completion_tokens"),
+  totalTokens: integer("total_tokens"),
+  costCents: numeric("cost_cents", { precision: 10, scale: 6 }),
 });
 
 export type Chat = typeof chats.$inferSelect;

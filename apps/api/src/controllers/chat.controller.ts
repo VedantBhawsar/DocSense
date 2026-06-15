@@ -84,6 +84,8 @@ export async function sendMessageHandler(req: Request, res: Response) {
         res.write(`data: ${JSON.stringify({ token: event.value })}\n\n`);
       } else if (event.type === "suggestions") {
         res.write(`data: ${JSON.stringify({ suggestions: event.value })}\n\n`);
+      } else if (event.type === "usage") {
+        res.write(`data: ${JSON.stringify({ usage: event })}\n\n`);
       }
     }
     res.write("data: [DONE]\n\n");
