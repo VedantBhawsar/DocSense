@@ -22,15 +22,12 @@ networks:
     driver: bridge
 
 services:
-
   redis:
     image: redis:7-alpine
     container_name: docsense_redis
     restart: unless-stopped
     networks:
       - docsense_infra
-    ports:
-      - "127.0.0.1:6379:6379"
     command: >
       redis-server
       --save 60 1
@@ -45,14 +42,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: "0.30"
-          memory: 256M
-        reservations:
-          cpus: "0.05"
-          memory: 64M
 
   db:
     image: pgvector/pgvector:pg16
@@ -60,8 +49,6 @@ services:
     restart: unless-stopped
     networks:
       - docsense_infra
-    ports:
-      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: ${DB_USER:-docsense}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-docsense123}
@@ -73,14 +60,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: "0.50"
-          memory: 512M
-        reservations:
-          cpus: "0.10"
-          memory: 128M
 
   minio:
     image: minio/minio:latest
@@ -88,9 +67,6 @@ services:
     restart: unless-stopped
     networks:
       - docsense_infra
-    ports:
-      - "127.0.0.1:9000:9000"
-      - "9001:9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
@@ -102,15 +78,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: "0.30"
-          memory: 256M
-        reservations:
-          cpus: "0.05"
-          memory: 64M
-
+      
 volumes:
   pgdata:
   redisdata:
