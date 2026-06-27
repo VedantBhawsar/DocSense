@@ -1,0 +1,117 @@
+version: '3.9'
+
+# ── Infrastructure services (run separately from the app) ─────────
+# Usage:
+#   cd infra
+#   docker compose --env-file ../.env up -d        # share the root .env
+#   # — or —
+#   cp .env.example .env && docker compose up -d    # self-contained
+#
+# This file creates the `docsense_infra` network. The app compose
+# at the project root attaches to it via `external: true`, so the
+# api/worker/web containers can reach db, redis, and minio by name.
+#
+# Tear down:
+#   docker compose down            # stop services, keep volumes
+#   docker compose down -v         # stop services AND delete volumes
+# ───────────────────────────────────────────────────────────────────
+
+networks:
+  docsense_infra:
+    name: docsense_infra
+    driver: bridge
+
+services:
+
+  redis:
+    image: redis:7-alpine
+    container_name: docsense_redis
+    restart: unless-stopped
+    networks:
+      - docsense_infra
+    ports:
+      - "127.0.0.1:6379:6379"
+    command: >
+      redis-server
+      --save 60 1
+      --loglevel warning
+      --maxmemory 192mb
+      --maxmemory-policy noeviction
+      --tcp-keepalive 60
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.30"
+          memory: 256M
+        reservations:
+          cpus: "0.05"
+          memory: 64M
+
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: docsense_db
+    restart: unless-stopped
+    networks:
+      - docsense_infra
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER:-docsense}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-docsense123}
+      POSTGRES_DB: ${DB_NAME:-docsense}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-docsense}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+        reservations:
+          cpus: "0.10"
+          memory: 128M
+
+  minio:
+    image: minio/minio:latest
+    container_name: docsense_minio
+    restart: unless-stopped
+    networks:
+      - docsense_infra
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    command: server /data --console-address ":9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.30"
+          memory: 256M
+        reservations:
+          cpus: "0.05"
+          memory: 64M
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

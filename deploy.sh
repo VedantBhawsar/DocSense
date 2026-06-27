@@ -84,6 +84,7 @@ info "Checking requirements..."
 command -v docker &>/dev/null      || error "Docker not found. Run: bash deploy.sh --setup"
 docker compose version &>/dev/null || error "Docker Compose not found. Run: bash deploy.sh --setup"
 [ -f "docker-compose.yml" ]        || error "docker-compose.yml not found. Are you in the project root?"
+[ -f "infra/docker.compose.yml" ]  || error "infra/docker.compose.yml not found. Are you in the project root?"
 [ -f "nginx.conf" ]                || error "nginx.conf not found. Are you in the project root?"
 success "Requirements satisfied"
 
@@ -231,6 +232,7 @@ info "Building images one at a time (sequential to protect VPS resources)..."
 if $REBUILD; then
   info "Full rebuild requested — stopping existing containers..."
   docker compose down --remove-orphans || true
+  docker compose -f infra/docker.compose.yml down --remove-orphans || true
 fi
 
 # Build each image individually so pnpm install + compile never overlap
@@ -245,10 +247,18 @@ for svc in migrate api worker web; do
 done
 
 # ─────────────────────────────────────────────────────────────────────────────
+# STEP 5a — Ensure infra (redis, db, minio) is up
+# ─────────────────────────────────────────────────────────────────────────────
+echo ""
+info "Ensuring infra services are up (redis, db, minio)..."
+docker compose -f infra/docker.compose.yml --env-file .env up -d
+success "Infra up"
+
+# ─────────────────────────────────────────────────────────────────────────────
 # STEP 5b — Start all containers (images already built, startup is fast)
 # ─────────────────────────────────────────────────────────────────────────────
 echo ""
-info "Starting containers..."
+info "Starting app containers..."
 
 if $REBUILD; then
   docker compose up -d --force-recreate
@@ -256,7 +266,7 @@ else
   docker compose up -d
 fi
 
-success "Containers started"
+success "App containers started"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STEP 6 — Wait for API to become healthy
@@ -295,7 +305,7 @@ echo -e "  Handy commands:"
 echo -e "    All logs     : ${YELLOW}docker compose logs -f${NC}"
 echo -e "    API logs     : ${YELLOW}docker compose logs -f api${NC}"
 echo -e "    Web logs     : ${YELLOW}docker compose logs -f web${NC}"
-echo -e "    Stop all     : ${YELLOW}docker compose down${NC}"
+echo -e "    Stop all     : ${YELLOW}docker compose down && docker compose -f infra/docker.compose.yml down${NC}"
 echo -e "    Update app   : ${YELLOW}bash deploy.sh${NC}"
 echo -e "    Full rebuild : ${YELLOW}bash deploy.sh --rebuild${NC}"
 echo ""
