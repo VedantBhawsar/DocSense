@@ -1,1 +1,1 @@
-ALTER TABLE "chunks" ADD COLUMN "metadata" jsonb;
+ALTER TABLE "chunks" ADD COLUMN IF NOT EXISTS "metadata" jsonb;
