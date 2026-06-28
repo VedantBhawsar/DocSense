@@ -1,1 +1,1 @@
-DROP INDEX "chunks_embedding_hnsw_idx";
+-- No-op: HNSW index from migration 0005 was never successfully created (always failed at migration time due to 2000-dim HNSW limit), so there is nothing to drop here.

@@ -1,28 +1,48 @@
+# -------------------------------------------------------
+# Base
+# -------------------------------------------------------
 FROM node:22-alpine AS base
+
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
+
+RUN apk add --no-cache libc6-compat
 RUN corepack enable
 
-# ── Builder: prune monorepo to only db package deps ──────────────
+# -------------------------------------------------------
+# Prune monorepo to only @docsense/api (and its deps, incl. db)
+# -------------------------------------------------------
 FROM base AS builder
-WORKDIR /app
-RUN apk add --no-cache libc6-compat
-COPY . .
-RUN pnpm turbo prune @docsense/db --docker
 
-# ── Installer: install + build the db package ────────────────────
-FROM base AS installer
 WORKDIR /app
-RUN apk add --no-cache libc6-compat
+
+COPY . .
+
+RUN pnpm turbo prune api --docker
+
+# -------------------------------------------------------
+# Install dependencies
+# -------------------------------------------------------
+FROM base AS installer
+
+WORKDIR /app
+
 COPY --from=builder /app/out/json/ .
 COPY --from=builder /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
-RUN pnpm install --frozen-lockfile
-COPY --from=builder /app/out/full/ .
-RUN pnpm turbo run build --filter=@docsense/db
 
-# ── Runner: apply migrations and exit ───────────────────────────
-FROM node:22-alpine
+RUN pnpm install --frozen-lockfile
+
+COPY --from=builder /app/out/full/ .
+
+# -------------------------------------------------------
+# Migration runner
+# -------------------------------------------------------
+FROM base AS runner
+
 WORKDIR /app
-RUN corepack enable
-COPY --from=installer /app ./
-CMD ["pnpm", "--filter", "@docsense/db", "db:migrate"]
+
+COPY --from=installer /app .
+
+ENV NODE_ENV=production
+
+CMD ["pnpm", "--filter", "api", "db:migrate"]
